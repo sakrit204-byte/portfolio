@@ -1,0 +1,26 @@
+.bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.drop {
+  position: absolute;
+  top: -12px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: dropFall linear infinite;
+  background: radial-gradient(
+    circle at 35% 35%,
+    hsla(190, 60%, 72%, 0.7),
+    hsla(190, 60%, 72%, 0.1) 70%,
+    transparent
+  );
+}
+
+@keyframes dropFall {
+  0%   { transform: translateY(0);      opacity: 0.8; }
+  100% { transform: translateY(110vh);  opacity: 0.3; }
+}
