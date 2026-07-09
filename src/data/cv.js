@@ -310,12 +310,6 @@ export const REFERENCES = [
     phone: '+91-9942992332',
   },
   {
-    name: 'Ashish Bhatt',
-    title: 'Faculty, VIT Vellore',
-    email: 'Ashish.bhatt@vit.ac.in',
-    phone: '+91 416 220 2452',
-  },
-  {
     name: 'Binod Gyawali',
     title:
       'Planning and Monitoring Officer, BRCRN Project, Ministry of Agriculture, Forest and Environment, Government of Nepal',
