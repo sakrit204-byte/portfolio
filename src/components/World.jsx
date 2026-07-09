@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LINKS, NODES } from '../data/cv';
+import Gallery from './Gallery';
 import s from './world.module.css';
 
 /* ------------------------------------------------------------------ */
@@ -14,6 +15,8 @@ const START_PLAYER_Y = 40;
 const GRID = 46;
 const NEAR = 155; // distance at which a node becomes "active" (inspectable)
 const DISCOVER = 190; // distance at which a node is marked discovered
+const HOME_R = 130; // walk back inside this radius to trigger the gallery
+const TILT_X = 12; // resting pitch of the map plane, degrees
 const TRAIL_MAX = 34;
 const MOVE_KEYS = new Set([
   'w', 'a', 's', 'd',
@@ -27,6 +30,16 @@ const COFFEE_RINGS = [
 ];
 
 const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));
+
+/** Canvas can't read CSS custom properties — mirror the per-kind accents here. */
+const KIND_RGB = {
+  home: '221,132,18',
+  studio: '180,83,10',
+  gov: '63,107,83',
+  product: '124,63,94',
+  client: '45,90,120',
+  beacon: '221,132,18',
+};
 
 /** Deterministic pseudo-random in [0,1) — keeps hand-drawn wobble stable across frames. */
 const rand = (i) => {
@@ -57,8 +70,9 @@ const qPoint = (a, c, b, t) => {
 
 /* ------------------------------------------------------------------ */
 
-export default function World({ onOpen }) {
+export default function World({ onOpen, paused = false }) {
   const stageRef = useRef(null);
+  const tiltRef = useRef(null);
   const canvasRef = useRef(null);
   const layerRef = useRef(null);
   const playerDotRef = useRef(null);
@@ -68,6 +82,7 @@ export default function World({ onOpen }) {
   const [discovered, setDiscovered] = useState(() => new Set());
   const [touched, setTouched] = useState(false);
   const [coarse, setCoarse] = useState(false);
+  const [gallery, setGallery] = useState(false);
 
   // Mutable simulation state — deliberately outside React so the rAF loop
   // never triggers a re-render.
@@ -83,13 +98,26 @@ export default function World({ onOpen }) {
     scale: 1,
     w: 0,
     h: 0,
+    vw: 0,
+    vh: 0,
+    offX: 0,
+    offY: 0,
     activeId: null,
     discovered: new Set(),
     drag: null,
     dragMoved: false,
     visible: true,
     calm: false,
+    paused: false,
+    leftHome: false,
+    galleryDone: false,
   });
+
+  // Freeze the simulation's input while any overlay owns the screen.
+  useEffect(() => {
+    sim.current.paused = paused || gallery;
+    if (paused || gallery) sim.current.keys.clear();
+  }, [paused, gallery]);
 
   const openNode = useCallback(
     (node) => {
@@ -107,8 +135,9 @@ export default function World({ onOpen }) {
   /* ---------------- main loop ---------------- */
   useEffect(() => {
     const stage = stageRef.current;
+    const tilt = tiltRef.current;
     const canvas = canvasRef.current;
-    if (!stage || !canvas) return;
+    if (!stage || !tilt || !canvas) return;
     const ctx = canvas.getContext('2d');
     const S = sim.current;
 
@@ -118,21 +147,34 @@ export default function World({ onOpen }) {
 
     /* ----- sizing ----- */
     const resize = () => {
-      const r = stage.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      S.w = r.width;
-      S.h = r.height;
+      // The plane overhangs the stage so pitching it never exposes the corners.
+      // Canvas covers the plane; zoom is fitted to the *visible* stage, or the
+      // overhang would scale the world up and push edge markers out of frame.
+      const pw = tilt.offsetWidth;
+      const ph = tilt.offsetHeight;
+      const vis = stage.getBoundingClientRect();
+
+      S.w = pw;
+      S.h = ph;
+      S.offX = (pw - vis.width) / 2;
+      S.offY = (ph - vis.height) / 2;
+      S.vw = vis.width;
+      S.vh = vis.height;
+
       // Fit to the shorter axis — the map viewport is wide but shallow, so
       // scaling on width alone pushes every node off the top and bottom.
-      S.scale = clamp(Math.min(r.width / 1500, r.height / 620), 0.46, 0.95);
-      canvas.width = Math.round(r.width * dpr);
-      canvas.height = Math.round(r.height * dpr);
-      canvas.style.width = `${r.width}px`;
-      canvas.style.height = `${r.height}px`;
+      S.scale = clamp(Math.min(vis.width / 1500, vis.height / 620), 0.46, 0.95);
+
+      canvas.width = Math.round(pw * dpr);
+      canvas.height = Math.round(ph * dpr);
+      canvas.style.width = `${pw}px`;
+      canvas.style.height = `${ph}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
     const ro = new ResizeObserver(resize);
+    ro.observe(tilt);
     ro.observe(stage);
 
     /* ----- pause when off-screen ----- */
@@ -142,7 +184,7 @@ export default function World({ onOpen }) {
     /* ----- keyboard ----- */
     const onKeyDown = (e) => {
       const k = e.key.toLowerCase();
-      if (!S.visible) return;
+      if (!S.visible || S.paused) return;
       const typing = e.target instanceof HTMLElement && /input|textarea/i.test(e.target.tagName);
       if (typing) return;
 
@@ -176,7 +218,22 @@ export default function World({ onOpen }) {
       stage.setPointerCapture?.(e.pointerId);
       stage.dataset.grabbing = '';
     };
+    // Gentle parallax: the plane leans toward the pointer.
+    const onParallax = (e) => {
+      if (S.calm || isCoarse || S.drag) return;
+      const r = stage.getBoundingClientRect();
+      const nx = (e.clientX - r.left) / r.width - 0.5;
+      const ny = (e.clientY - r.top) / r.height - 0.5;
+      tilt.style.setProperty('--rx', `${TILT_X - ny * 5}deg`);
+      tilt.style.setProperty('--ry', `${nx * 7}deg`);
+    };
+    const onLeaveStage = () => {
+      tilt.style.setProperty('--rx', `${TILT_X}deg`);
+      tilt.style.setProperty('--ry', '0deg');
+    };
+
     const onPointerMove = (e) => {
+      onParallax(e);
       if (!S.drag) return;
       const dx = e.clientX - S.drag.x;
       const dy = e.clientY - S.drag.y;
@@ -198,6 +255,7 @@ export default function World({ onOpen }) {
     stage.addEventListener('pointermove', onPointerMove);
     stage.addEventListener('pointerup', endDrag);
     stage.addEventListener('pointercancel', endDrag);
+    stage.addEventListener('pointerleave', onLeaveStage);
 
     /* ----- render ----- */
     let raf = 0;
@@ -211,19 +269,21 @@ export default function World({ onOpen }) {
       if (!S.visible) return;
       clock += dt;
 
-      step(dt, clock);
+      step(dt);
       draw(ctx, S, clock);
-      paintDom(S, clock);
+      paintDom(S);
     };
 
     const step = (dt) => {
       // input -> acceleration
       let ax = 0;
       let ay = 0;
-      if (S.keys.has('a') || S.keys.has('arrowleft')) ax -= 1;
-      if (S.keys.has('d') || S.keys.has('arrowright')) ax += 1;
-      if (S.keys.has('w') || S.keys.has('arrowup')) ay -= 1;
-      if (S.keys.has('s') || S.keys.has('arrowdown')) ay += 1;
+      if (!S.paused) {
+        if (S.keys.has('a') || S.keys.has('arrowleft')) ax -= 1;
+        if (S.keys.has('d') || S.keys.has('arrowright')) ax += 1;
+        if (S.keys.has('w') || S.keys.has('arrowup')) ay -= 1;
+        if (S.keys.has('s') || S.keys.has('arrowdown')) ay += 1;
+      }
       const m = Math.hypot(ax, ay) || 1;
 
       S.vel.x = (S.vel.x + (ax / m) * 1.5 * dt) * 0.87;
@@ -270,6 +330,16 @@ export default function World({ onOpen }) {
       if (nextActive !== S.activeId) {
         S.activeId = nextActive;
         setActiveId(nextActive);
+      }
+
+      // Returning to base camp opens the screenshot gallery — but only once the
+      // player has actually left it (they spawn within the radius).
+      const home = byId.home;
+      const dHome = Math.hypot(home.x - S.player.x, home.y - S.player.y);
+      if (dHome > HOME_R + 70) S.leftHome = true;
+      if (S.leftHome && dHome < HOME_R && !S.galleryDone && !S.paused) {
+        S.galleryDone = true;
+        setGallery(true);
       }
     };
 
@@ -356,15 +426,22 @@ export default function World({ onOpen }) {
         }
       });
 
-      /* node halos (the crisp node art is DOM, layered above) */
+      /* node halos + cast shadows (the crisp node art is DOM, layered above) */
       for (const n of NODES) {
         const on = St.discovered.has(n.id);
+        const rgb = KIND_RGB[n.kind] ?? KIND_RGB.home;
         const g = c.createRadialGradient(n.x, n.y, 0, n.x, n.y, 78);
-        g.addColorStop(0, on ? 'rgba(224,137,28,0.16)' : 'rgba(23,19,14,0.06)');
-        g.addColorStop(1, 'rgba(23,19,14,0)');
+        g.addColorStop(0, on ? `rgba(${rgb},0.2)` : 'rgba(26,20,16,0.06)');
+        g.addColorStop(1, 'rgba(26,20,16,0)');
         c.fillStyle = g;
         c.beginPath();
         c.arc(n.x, n.y, 78, 0, Math.PI * 2);
+        c.fill();
+
+        // the marker floats above the plane, so ground it with a soft shadow
+        c.fillStyle = 'rgba(26,20,16,0.13)';
+        c.beginPath();
+        c.ellipse(n.x + 5, n.y + 9, 13, 6, 0, 0, Math.PI * 2);
         c.fill();
       }
 
@@ -376,7 +453,7 @@ export default function World({ onOpen }) {
         if (!St.calm) c.rotate(clock * 0.008);
         c.setLineDash([5, 7]);
         c.lineWidth = 1.4;
-        c.strokeStyle = 'rgba(163,61,18,0.55)';
+        c.strokeStyle = `rgba(${KIND_RGB[n.kind] ?? KIND_RGB.home},0.7)`;
         c.beginPath();
         c.arc(0, 0, 48, 0, Math.PI * 2);
         c.stroke();
@@ -388,7 +465,7 @@ export default function World({ onOpen }) {
       for (let i = 0; i < St.trail.length; i++) {
         const p = St.trail[i];
         const f = i / St.trail.length;
-        c.fillStyle = `rgba(224,137,28,${f * 0.3})`;
+        c.fillStyle = `rgba(221,132,18,${f * 0.32})`;
         c.beginPath();
         c.arc(p.x, p.y, f * 5.5, 0, Math.PI * 2);
         c.fill();
@@ -397,16 +474,16 @@ export default function World({ onOpen }) {
       /* player */
       const { x: px, y: py } = St.player;
       const glow = c.createRadialGradient(px, py, 0, px, py, 40);
-      glow.addColorStop(0, 'rgba(224,137,28,0.34)');
-      glow.addColorStop(1, 'rgba(224,137,28,0)');
+      glow.addColorStop(0, 'rgba(221,132,18,0.36)');
+      glow.addColorStop(1, 'rgba(221,132,18,0)');
       c.fillStyle = glow;
       c.beginPath();
       c.arc(px, py, 40, 0, Math.PI * 2);
       c.fill();
 
       const bob = St.calm ? 0 : Math.sin(clock * 0.05) * 0.9;
-      c.fillStyle = '#e0891c';
-      c.strokeStyle = '#17130e';
+      c.fillStyle = '#dd8412';
+      c.strokeStyle = '#1a1410';
       c.lineWidth = 1.8;
       c.beginPath();
       c.arc(px, py + bob, 9, 0, Math.PI * 2);
@@ -421,7 +498,7 @@ export default function World({ onOpen }) {
     };
 
     /* Position the DOM node layer + off-screen arrows + minimap player. */
-    const paintDom = (St, clock) => {
+    const paintDom = (St) => {
       const { w, h, cam, scale } = St;
       if (layerRef.current) {
         layerRef.current.style.transform = `translate3d(${w / 2}px, ${h / 2}px, 0) scale(${scale}) translate3d(${-cam.x}px, ${-cam.y}px, 0)`;
@@ -433,18 +510,23 @@ export default function World({ onOpen }) {
         playerDotRef.current.style.top = `${my}%`;
       }
 
+      // Arrows live on the plane, but must hug the edges of the *visible* stage.
       const pad = 46;
+      const left = St.offX + pad;
+      const right = St.offX + St.vw - pad;
+      const top = St.offY + pad;
+      const bottom = St.offY + St.vh - pad;
+
       for (const n of NODES) {
         const el = arrowRefs.current[n.id];
         if (!el) continue;
         const sx = (n.x - cam.x) * scale + w / 2;
         const sy = (n.y - cam.y) * scale + h / 2;
-        const off = sx < pad || sx > w - pad || sy < pad || sy > h - pad;
+        const off = sx < left || sx > right || sy < top || sy > bottom;
         el.style.opacity = off ? '1' : '0';
         if (!off) continue;
         const ang = Math.atan2(sy - h / 2, sx - w / 2);
-        el.style.transform = `translate3d(${clamp(sx, pad, w - pad)}px, ${clamp(sy, pad, h - pad)}px, 0) rotate(${ang}rad)`;
-        el.style.setProperty('--pulse', String(0.7 + Math.sin(clock * 0.06) * 0.3));
+        el.style.transform = `translate3d(${clamp(sx, left, right)}px, ${clamp(sy, top, bottom)}px, 0) rotate(${ang}rad)`;
       }
     };
 
@@ -461,6 +543,7 @@ export default function World({ onOpen }) {
       stage.removeEventListener('pointermove', onPointerMove);
       stage.removeEventListener('pointerup', endDrag);
       stage.removeEventListener('pointercancel', endDrag);
+      stage.removeEventListener('pointerleave', onLeaveStage);
     };
   }, [openNode]);
 
@@ -478,58 +561,67 @@ export default function World({ onOpen }) {
 
   return (
     <div className={s.stage} ref={stageRef}>
-      <canvas ref={canvasRef} className={s.canvas} aria-hidden="true" />
+      {/* The map plane: pitched back in 3D, leaning toward the pointer. */}
+      <div className={s.tilt} ref={tiltRef}>
+        <canvas ref={canvasRef} className={s.canvas} aria-hidden="true" />
 
-      {/* Node layer — real buttons, so the map is keyboard + screen-reader usable. */}
-      <div className={s.layer} ref={layerRef}>
-        {NODES.map((n) => (
-          <button
-            key={n.id}
-            data-node
-            data-kind={n.kind}
-            data-active={activeId === n.id || undefined}
-            data-found={discovered.has(n.id) || undefined}
-            className={s.node}
-            style={{ left: n.x, top: n.y }}
-            onClick={() => {
-              if (sim.current.dragMoved) return; // a pan shouldn't open a panel
-              openNode(n);
-            }}
-            aria-label={`${n.label} — ${n.kicker}. Open case study.`}
-          >
-            <span className={s.ring} aria-hidden="true" />
-            <span className={s.core} aria-hidden="true" />
-            <span className={s.plate}>
-              <span className={s.kicker}>{n.kicker}</span>
-              <span className={s.label}>{n.label}</span>
-              {activeId === n.id && !coarse && (
-                <span className={s.hint}>
-                  <kbd>E</kbd> inspect
-                </span>
-              )}
-            </span>
-            <span className={s.note} aria-hidden="true">
-              {n.note}
-            </span>
-          </button>
-        ))}
-      </div>
+        {/* Node layer — real buttons, so the map is keyboard + screen-reader usable. */}
+        <div className={s.layer} ref={layerRef}>
+          {NODES.map((n) => (
+            <button
+              key={n.id}
+              data-node
+              data-kind={n.kind}
+              data-active={activeId === n.id || undefined}
+              data-found={discovered.has(n.id) || undefined}
+              className={s.node}
+              style={{ left: n.x, top: n.y }}
+              onClick={() => {
+                if (sim.current.dragMoved) return; // a pan shouldn't open a panel
+                openNode(n);
+              }}
+              aria-label={`${n.label} — ${n.kicker}. Open case study.`}
+            >
+              <span className={s.ring} aria-hidden="true" />
+              <span className={s.core} aria-hidden="true" />
+              <span className={s.plate}>
+                <span className={s.kicker}>{n.kicker}</span>
+                <span className={s.label}>{n.label}</span>
+                {activeId === n.id && !coarse && (
+                  <span className={s.hint}>
+                    <kbd>E</kbd> inspect
+                  </span>
+                )}
+              </span>
+              <span className={s.note} aria-hidden="true">
+                {n.note}
+              </span>
+            </button>
+          ))}
+        </div>
 
-      {/* Off-screen node pointers */}
-      <div className={s.arrows} aria-hidden="true">
-        {NODES.map((n) => (
-          <span
-            key={n.id}
-            className={s.arrow}
-            ref={(el) => {
-              arrowRefs.current[n.id] = el;
-            }}
-          >
-            <svg viewBox="0 0 24 24" width="13" height="13">
-              <path d="M4 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-          </span>
-        ))}
+        {/* Off-screen node pointers */}
+        <div className={s.arrows} aria-hidden="true">
+          {NODES.map((n) => (
+            <span
+              key={n.id}
+              className={s.arrow}
+              ref={(el) => {
+                arrowRefs.current[n.id] = el;
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="13" height="13">
+                <path
+                  d="M4 12h14M13 6l6 6-6 6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* HUD */}
@@ -571,6 +663,9 @@ export default function World({ onOpen }) {
         <button className={s.recentre} onClick={recentre} data-cursor="reset">
           Recentre
         </button>
+        <button className={s.recentre} onClick={() => setGallery(true)} data-cursor="view">
+          Screenshots
+        </button>
       </div>
 
       {/* Minimap */}
@@ -588,6 +683,8 @@ export default function World({ onOpen }) {
         ))}
         <span className={s.mmPlayer} ref={playerDotRef} />
       </div>
+
+      <Gallery open={gallery} onClose={() => setGallery(false)} />
     </div>
   );
 }

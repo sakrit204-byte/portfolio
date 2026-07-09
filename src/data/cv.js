@@ -222,6 +222,20 @@ export const NODES = [
   },
 ];
 
+/**
+ * Screenshot gallery, revealed when the player returns to base camp.
+ * Drop an image into `public/shots/` and set `src` to its path to fill a slot;
+ * a slot with `src: null` renders as an empty frame.
+ */
+export const GALLERY = [
+  { id: 'brcrn-plantation', title: 'Plantation Monitoring System', project: 'BRCRN Project', src: null },
+  { id: 'brcrn-churia', title: 'Churia Knowledge Centre', project: 'BRCRN Project', src: null },
+  { id: 'synexis', title: 'Synexis CRM', project: 'Independent Build', src: null },
+  { id: 'yadverse', title: 'YADverse Studio', project: 'The Studio', src: null },
+  { id: 'fleet', title: 'YourFleetElite', project: 'Australia · Remote', src: null },
+  { id: 'brcrn-rag', title: 'AI / RAG Document Pipeline', project: 'BRCRN Project', src: null },
+];
+
 /** Hand-drawn ink routes between map nodes. */
 export const LINKS = [
   ['home', 'yadverse'],

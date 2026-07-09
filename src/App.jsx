@@ -23,7 +23,7 @@ export default function App() {
       <Nav />
 
       <main>
-        <Hero onOpen={open} />
+        <Hero onOpen={open} paused={!!openNode} />
         <Stats />
         <Work onOpen={open} />
         <Services />

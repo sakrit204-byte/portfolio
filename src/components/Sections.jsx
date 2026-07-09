@@ -73,7 +73,6 @@ export function Work({ onOpen }) {
     <section className={s.section} id="work">
       <div className={s.wrap}>
         <Heading
-          index="01 — Selected work"
           aside="click any card"
           title="Shipped to production, and kept running."
           lead="Government systems, a studio, a CRM built from nothing, and an international commercial client. Every one of these went live."
@@ -118,7 +117,6 @@ export function Services() {
     <section className={s.section} id="services">
       <div className={s.wrap}>
         <Heading
-          index="02 — Services"
           aside="what you're buying"
           title="What I can build for you."
           lead="Fixed scope, weekly demos, and a production handover you actually own. No account managers — you talk to the person writing the code."
@@ -154,11 +152,7 @@ export function Stack() {
   return (
     <section className={s.section} id="stack">
       <div className={s.wrap}>
-        <Heading
-          index="03 — Technical stack"
-          title="The tools, honestly assessed."
-          lead="Everything here has shipped in something real — not a tutorial."
-        />
+        <Heading title="The tools, honestly assessed." lead="Everything here has shipped in something real — not a tutorial." />
 
         <div className={s.stackBox}>
           <div className={s.stackTabs} role="tablist" aria-label="Skill groups">
@@ -204,7 +198,7 @@ export function About() {
       <div className={s.wrap}>
         <div className={s.aboutGrid}>
           <div>
-            <Heading index="04 — About" title="Profile." />
+            <Heading title="Profile." />
             <Reveal as="p" className={s.aboutLead} delay={0.08}>
               {PROFILE.summary}
             </Reveal>

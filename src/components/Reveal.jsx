@@ -17,14 +17,15 @@ export default function Reveal({ children, as = 'div', delay = 0, y = 26, classN
   );
 }
 
-/** Section heading: mono index + serif title + optional hand-written aside. */
-export function Heading({ index, title, aside, lead }) {
+/** Section heading: serif title + optional hand-written aside. */
+export function Heading({ title, aside, lead }) {
   return (
     <header style={{ maxWidth: '58ch' }}>
-      <Reveal as="p" className="secIndex">
-        <span>{index}</span>
-        {aside && <em>{aside}</em>}
-      </Reveal>
+      {aside && (
+        <Reveal as="p" className="secAside">
+          {aside}
+        </Reveal>
+      )}
       <Reveal as="h2" className="secTitle" delay={0.06}>
         {title}
       </Reveal>

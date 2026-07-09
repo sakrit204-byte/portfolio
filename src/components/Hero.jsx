@@ -12,7 +12,7 @@ const rise = {
   }),
 };
 
-export default function Hero({ onOpen }) {
+export default function Hero({ onOpen, paused }) {
   return (
     <section className={s.hero} id="top">
       <div className={s.intro}>
@@ -61,7 +61,7 @@ export default function Hero({ onOpen }) {
       </div>
 
       <div className={s.map}>
-        <World onOpen={onOpen} />
+        <World onOpen={onOpen} paused={paused} />
       </div>
     </section>
   );

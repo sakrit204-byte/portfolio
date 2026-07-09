@@ -8,30 +8,38 @@
 
 :root {
   /* Ink */
-  --ink: #17130e;
-  --ink-2: #453c31;
-  --ink-3: #7a6d5e;
-  --ink-4: #a2947f;
+  --ink: #1a1410;
+  --ink-2: #4a3f33;
+  --ink-3: #7d6f5f;
+  --ink-4: #a89880;
 
   /* Paper */
-  --paper: #f7f3ea;
-  --paper-2: #f1ebdd;
-  --paper-3: #e7dfcc;
-  --paper-card: #fdfaf3;
+  --paper: #f6f1e6;
+  --paper-2: #efe8d8;
+  --paper-3: #e4dac5;
+  --paper-card: #fdfaf2;
 
   /* Accents */
-  --amber: #e0891c;
-  --amber-soft: #f5c465;
-  --amber-wash: #fbeccd;
-  --rust: #a33d12;
-  --sage: #4f7355;
+  --amber: #dd8412;
+  --amber-soft: #f6c76a;
+  --amber-wash: #fbeacb;
+  --rust: #a83c0f;
+  --sage: #4a7350;
 
-  --line: rgba(23, 19, 14, 0.14);
-  --line-soft: rgba(23, 19, 14, 0.07);
+  /* Per-project accents — also keyed off [data-kind] on map markers. */
+  --k-home: #dd8412;
+  --k-studio: #b4530a;
+  --k-gov: #3f6b53;
+  --k-product: #7c3f5e;
+  --k-client: #2d5a78;
+  --k-beacon: #dd8412;
 
-  --shadow-sm: 0 1px 2px rgba(23, 19, 14, 0.05), 0 2px 8px rgba(23, 19, 14, 0.04);
-  --shadow-md: 0 2px 6px rgba(23, 19, 14, 0.06), 0 12px 32px rgba(23, 19, 14, 0.08);
-  --shadow-lg: 0 4px 12px rgba(23, 19, 14, 0.08), 0 30px 70px rgba(23, 19, 14, 0.14);
+  --line: rgba(26, 20, 16, 0.14);
+  --line-soft: rgba(26, 20, 16, 0.07);
+
+  --shadow-sm: 0 1px 2px rgba(26, 20, 16, 0.05), 0 2px 8px rgba(26, 20, 16, 0.04);
+  --shadow-md: 0 2px 6px rgba(26, 20, 16, 0.06), 0 12px 32px rgba(26, 20, 16, 0.09);
+  --shadow-lg: 0 4px 12px rgba(26, 20, 16, 0.08), 0 30px 70px rgba(26, 20, 16, 0.16);
 
   --serif: 'DM Serif Display', Georgia, serif;
   --sans: 'DM Sans', system-ui, -apple-system, sans-serif;
@@ -56,7 +64,11 @@ html {
 
 body {
   font-family: var(--sans);
-  background: var(--paper);
+  background:
+    radial-gradient(120% 80% at 15% -10%, #fdfaf3 0%, transparent 55%),
+    radial-gradient(100% 70% at 95% 5%, #fbf0dc 0%, transparent 50%),
+    linear-gradient(180deg, var(--paper) 0%, #f2ebdd 100%);
+  background-attachment: fixed;
   color: var(--ink);
   min-height: 100vh;
   overflow-x: hidden;
@@ -128,35 +140,16 @@ body[data-cursor='on'] * {
 }
 
 /* Shared section furniture (used by the <Heading> component). */
-.secIndex {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-
-.secIndex span {
-  padding-bottom: 3px;
-  border-bottom: 1px solid var(--amber);
-  color: var(--rust);
-}
-
-.secIndex em {
+.secAside {
   font-family: var(--hand);
-  font-style: normal;
-  font-size: 20px;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 22px;
   color: var(--ink-4);
   transform: rotate(-2deg);
+  transform-origin: 0 50%;
 }
 
 .secTitle {
-  margin-top: 20px;
+  margin-top: 14px;
   font-family: var(--serif);
   font-weight: 400;
   font-size: clamp(31px, 4.4vw, 56px);

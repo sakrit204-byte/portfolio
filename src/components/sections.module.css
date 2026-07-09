@@ -76,6 +76,7 @@
 }
 
 .caseCard {
+  --accent: var(--amber);
   position: relative;
   width: 100%;
   height: 100%;
@@ -93,6 +94,32 @@
   transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease), border-color 0.3s;
 }
 
+.caseCard[data-kind='gov'] {
+  --accent: var(--k-gov);
+}
+.caseCard[data-kind='studio'] {
+  --accent: var(--k-studio);
+}
+.caseCard[data-kind='product'] {
+  --accent: var(--k-product);
+}
+.caseCard[data-kind='client'] {
+  --accent: var(--k-client);
+}
+
+.caseCard::before {
+  /* accent spine down the leading edge */
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.5;
+  transition: opacity 0.35s;
+}
+
 .caseCard::after {
   /* accent wash that blooms from the corner on hover */
   content: '';
@@ -101,7 +128,7 @@
   right: -30%;
   width: 70%;
   height: 160%;
-  background: radial-gradient(circle, rgba(224, 137, 28, 0.16), transparent 62%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%);
   opacity: 0;
   transition: opacity 0.45s;
   pointer-events: none;
@@ -109,8 +136,12 @@
 
 .caseCard:hover {
   transform: translateY(-5px);
-  border-color: var(--amber);
+  border-color: var(--accent);
   box-shadow: var(--shadow-md);
+}
+
+.caseCard:hover::before {
+  opacity: 1;
 }
 
 .caseCard:hover::after {
@@ -130,7 +161,7 @@
   font-size: 9px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--rust);
+  color: var(--accent);
 }
 
 .casePeriod {
