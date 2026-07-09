@@ -1,10 +1,49 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, useInView, useReducedMotion } from 'framer-motion';
 import Reveal, { Heading } from './Reveal';
 import { CONTACT, EDUCATION, NODES, PROFILE, REFERENCES, SERVICES, SKILLS, STATS } from '../data/cv';
 import s from './sections.module.css';
 
 const CASE_IDS = ['brcrn', 'yadverse', 'synexis', 'fleet'];
+
+/** Counts a stat up when it scrolls into view. Non-numeric values pass through. */
+function CountUp({ value }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-15%' });
+  const calm = useReducedMotion();
+  const parts = /^([\d.]+)(.*)$/.exec(value);
+  const [shown, setShown] = useState(parts ? '0' : value);
+
+  useEffect(() => {
+    if (!parts || !inView) return;
+    const end = parseFloat(parts[1]);
+    const decimals = (parts[1].split('.')[1] ?? '').length;
+    if (calm) {
+      setShown(end.toFixed(decimals));
+      return;
+    }
+    const DURATION = 1100;
+    let raf = 0;
+    let start = 0;
+    const tick = (now) => {
+      if (!start) start = now;
+      const t = Math.min((now - start) / DURATION, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown((end * eased).toFixed(decimals));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, calm, parts?.[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!parts) return <span ref={ref}>{value}</span>;
+  return (
+    <span ref={ref}>
+      {shown}
+      {parts[2]}
+    </span>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 
@@ -14,7 +53,9 @@ export function Stats() {
       <div className={s.statsInner}>
         {STATS.map((st, i) => (
           <Reveal key={st.label} className={s.stat} delay={i * 0.07}>
-            <strong>{st.value}</strong>
+            <strong>
+              <CountUp value={st.value} />
+            </strong>
             <span>{st.label}</span>
           </Reveal>
         ))}
@@ -219,6 +260,18 @@ export function About() {
 /* ------------------------------------------------------------------ */
 
 export function Contact() {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(CONTACT.email);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard blocked (insecure context / denied) — the mailto link still works.
+    }
+  };
+
   return (
     <section className={s.contact} id="contact">
       <div className={s.wrap}>
@@ -241,6 +294,9 @@ export function Contact() {
           <a className={s.contactPrimary} href={`mailto:${CONTACT.email}`}>
             {CONTACT.email}
           </a>
+          <button className={s.contactGhost} onClick={copy} aria-live="polite">
+            {copied ? 'Copied ✓' : 'Copy address'}
+          </button>
           <a className={s.contactGhost} href={CONTACT.phoneHref}>
             {CONTACT.phone}
           </a>

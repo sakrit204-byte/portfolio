@@ -534,13 +534,18 @@ export default function World({ onOpen }) {
 
       {/* HUD */}
       <div className={s.hudTop}>
-        <div className={s.counter}>
-          <span className={s.counterNum}>
+        <div className={s.counter} role="status" aria-live="polite">
+          <span className="srOnly">
+            {found} of {total} locations discovered
+          </span>
+          <span className={s.counterNum} aria-hidden="true">
             {String(found).padStart(2, '0')}
             <i>/</i>
             {String(total).padStart(2, '0')}
           </span>
-          <span className={s.counterLabel}>discovered</span>
+          <span className={s.counterLabel} aria-hidden="true">
+            discovered
+          </span>
           <span className={s.meter} aria-hidden="true">
             <i style={{ transform: `scaleX(${found / total})` }} />
           </span>

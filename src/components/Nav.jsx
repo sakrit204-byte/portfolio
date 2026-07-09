@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CONTACT } from '../data/cv';
 import s from './nav.module.css';
 
@@ -12,12 +12,22 @@ const LINKS = [
 export default function Nav() {
   const [lifted, setLifted] = useState(false);
   const [open, setOpen] = useState(false);
+  const barRef = useRef(null);
 
   useEffect(() => {
-    const onScroll = () => setLifted(window.scrollY > 24);
+    const onScroll = () => {
+      setLifted(window.scrollY > 24);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const p = max > 0 ? window.scrollY / max : 0;
+      barRef.current?.style.setProperty('transform', `scaleX(${p})`);
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, []);
 
   // The mobile sheet owns the scroll while it's open.
@@ -81,6 +91,8 @@ export default function Nav() {
           </a>
         </div>
       )}
+
+      <span className={s.progress} ref={barRef} aria-hidden="true" />
     </header>
   );
 }
