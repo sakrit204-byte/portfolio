@@ -44,6 +44,9 @@ export default function Hero({ onOpen, paused }) {
           <a className={s.ghost} href="#work">
             See the work
           </a>
+          <a className={s.ghost} href={CONTACT.cvHref} download={CONTACT.cvFile}>
+            Download CV ↓
+          </a>
           <a className={s.ghost} href={CONTACT.githubHref} target="_blank" rel="noreferrer">
             GitHub ↗
           </a>

@@ -62,6 +62,9 @@ export default function Nav() {
             <i className={s.pulse} aria-hidden="true" />
             Available
           </span>
+          <a className={s.cv} href={CONTACT.cvHref} download={CONTACT.cvFile}>
+            CV <span aria-hidden="true">↓</span>
+          </a>
           <a className={s.cta} href="#contact">
             Hire me
           </a>
@@ -85,6 +88,9 @@ export default function Nav() {
           ))}
           <a href="#contact" onClick={() => setOpen(false)}>
             Contact
+          </a>
+          <a href={CONTACT.cvHref} download={CONTACT.cvFile} onClick={() => setOpen(false)}>
+            Download CV ↓
           </a>
           <a href={CONTACT.githubHref} target="_blank" rel="noreferrer">
             GitHub ↗

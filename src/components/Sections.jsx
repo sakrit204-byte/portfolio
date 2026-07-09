@@ -294,6 +294,9 @@ export function Contact() {
           <a className={s.contactGhost} href={CONTACT.phoneHref}>
             {CONTACT.phone}
           </a>
+          <a className={s.contactGhost} href={CONTACT.cvHref} download={CONTACT.cvFile}>
+            Download CV ↓
+          </a>
         </Reveal>
 
         <Reveal className={s.contactLinks} delay={0.24}>

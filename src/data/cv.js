@@ -24,6 +24,8 @@ export const CONTACT = {
   githubHref: 'https://github.com/sakrit204-byte',
   studio: 'yadverse.netlify.app',
   studioHref: 'https://yadverse.netlify.app',
+  cvHref: '/sakrit-kafle-cv.pdf',
+  cvFile: 'Sakrit-Kafle-CV.pdf',
 };
 
 export const STATS = [
