@@ -1,26 +1,187 @@
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --ink:    #0d0d0d;
-  --paper:  #fdfcf8;
-  --amber:  #f59e0b;
-  --radius: 1.5rem;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-html { scroll-behavior: smooth; }
+:root {
+  /* Ink */
+  --ink: #17130e;
+  --ink-2: #453c31;
+  --ink-3: #7a6d5e;
+  --ink-4: #a2947f;
+
+  /* Paper */
+  --paper: #f7f3ea;
+  --paper-2: #f1ebdd;
+  --paper-3: #e7dfcc;
+  --paper-card: #fdfaf3;
+
+  /* Accents */
+  --amber: #e0891c;
+  --amber-soft: #f5c465;
+  --amber-wash: #fbeccd;
+  --rust: #a33d12;
+  --sage: #4f7355;
+
+  --line: rgba(23, 19, 14, 0.14);
+  --line-soft: rgba(23, 19, 14, 0.07);
+
+  --shadow-sm: 0 1px 2px rgba(23, 19, 14, 0.05), 0 2px 8px rgba(23, 19, 14, 0.04);
+  --shadow-md: 0 2px 6px rgba(23, 19, 14, 0.06), 0 12px 32px rgba(23, 19, 14, 0.08);
+  --shadow-lg: 0 4px 12px rgba(23, 19, 14, 0.08), 0 30px 70px rgba(23, 19, 14, 0.14);
+
+  --serif: 'DM Serif Display', Georgia, serif;
+  --sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --hand: 'Caveat', cursive;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius: 14px;
+  --radius-lg: 22px;
+
+  --nav-h: 68px;
+  --gutter: clamp(20px, 5vw, 76px);
+  --maxw: 1240px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Anchor targets clear the fixed nav. */
+  scroll-padding-top: calc(var(--nav-h) + 24px);
+}
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--sans);
   background: var(--paper);
   color: var(--ink);
   min-height: 100vh;
   overflow-x: hidden;
+  line-height: 1.6;
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
-  caret-color: transparent;
 }
 
-::selection { background: #fde68a; color: var(--ink); }
-img { display: block; max-width: 100%; }
-button { font-family: inherit; cursor: pointer; border: none; background: none; }
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--amber-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Screen-reader-only, but focusable (skip link). */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skipLink:focus {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  width: auto;
+  height: auto;
+  clip: auto;
+  clip-path: none;
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 8px;
+}
+
+/* Hide the native cursor only where our custom one is active. */
+body[data-cursor='on'],
+body[data-cursor='on'] * {
+  cursor: none;
+}
+
+/* Shared section furniture (used by the <Heading> component). */
+.secIndex {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.secIndex span {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--amber);
+  color: var(--rust);
+}
+
+.secIndex em {
+  font-family: var(--hand);
+  font-style: normal;
+  font-size: 20px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-4);
+  transform: rotate(-2deg);
+}
+
+.secTitle {
+  margin-top: 20px;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(31px, 4.4vw, 56px);
+  line-height: 1.04;
+  letter-spacing: -0.015em;
+}
+
+.secLead {
+  margin-top: 18px;
+  font-size: clamp(15px, 1.4vw, 18.5px);
+  font-weight: 300;
+  line-height: 1.62;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

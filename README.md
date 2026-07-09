@@ -1,16 +1,49 @@
-# React + Vite
+# Sakrit Kafle — Portfolio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An explorable portfolio. The hero is a real map you can walk around: each marker
+is a project, and the case study opens in place. Below the map is a conventional
+site — services, work, stack, contact — for visitors who'd rather just scroll.
 
-Currently, two official plugins are available:
+**Live:** [sakritkafle.netlify.app](https://sakritkafle.netlify.app)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## The map
 
-## React Compiler
+| Input | Action |
+| --- | --- |
+| `W` `A` `S` `D` / arrows | move |
+| drag | pan the camera |
+| `E` | inspect the nearest marker |
+| click / tap a marker | open its case study |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Markers are *discovered* by walking near them (or opening them), tracked by the
+counter in the corner. Off-screen markers are signposted by arrows at the edge,
+and the minimap shows the whole world.
 
-## Expanding the ESLint configuration
+Every marker is also a real `<button>`, so the map is fully keyboard- and
+screen-reader navigable. Motion is disabled under `prefers-reduced-motion`, and
+the canvas loop pauses when the hero scrolls out of view.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Architecture
+
+- **`src/data/cv.js`** — single source of truth. Every section, marker and case
+  study renders from this file; it mirrors the CV verbatim.
+- **`src/components/World.jsx`** — the map. A canvas draws the paper grid, the
+  hand-drawn ink routes and the player; markers are DOM buttons in a transformed
+  layer above it, so labels stay crisp and accessible. Simulation state lives in
+  a ref, not React state — the rAF loop never triggers a re-render.
+- **`src/components/CaseStudy.jsx`** — the drawer, shared by the map and the
+  work cards. Focus-trapped, Esc to close, scroll-locked.
+- **`src/components/Sections.jsx`** — everything below the fold.
+
+## Develop
+
+```bash
+npm install
+npm run dev      # vite dev server
+npm run build    # production build
+npm run lint     # eslint
+```
+
+## Stack
+
+React 19 · Vite 7 · Framer Motion · CSS Modules · Canvas 2D

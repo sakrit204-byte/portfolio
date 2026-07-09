@@ -1,22 +1,40 @@
-import Navbar from './components/Navbar';
+import { useCallback, useState } from 'react';
+import Grain from './components/Grain';
+import Cursor from './components/Cursor';
+import Nav from './components/Nav';
 import Hero from './components/Hero';
-import Modal from './components/Modal';
-import BackgroundDrops from './components/BackgroundDrops';
-import { useModal } from './hooks/useModal';
+import CaseStudy from './components/CaseStudy';
+import { About, Contact, Footer, Services, Stack, Stats, Work } from './components/Sections';
 
 export default function App() {
-  const { activeModal, openModal, closeModal } = useModal();
+  const [openNode, setOpenNode] = useState(null);
+
+  const open = useCallback((node) => setOpenNode(node), []);
+  const close = useCallback(() => setOpenNode(null), []);
 
   return (
     <>
-      <BackgroundDrops />
+      <a className="srOnly skipLink" href="#work">
+        Skip the map, go to the work
+      </a>
 
-      <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Navbar onOpenModal={openModal} />
-        <Hero onOpenModal={openModal} />
-      </div>
+      <Grain />
+      <Cursor />
+      <Nav />
 
-      <Modal activeModal={activeModal} onClose={closeModal} />
+      <main>
+        <Hero onOpen={open} />
+        <Stats />
+        <Work onOpen={open} />
+        <Services />
+        <Stack />
+        <About />
+        <Contact />
+      </main>
+
+      <Footer />
+
+      <CaseStudy node={openNode} onClose={close} />
     </>
   );
 }

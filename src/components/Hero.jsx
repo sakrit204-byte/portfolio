@@ -1,37 +1,68 @@
-import SpiralRing from './SpiralRing';
-import CircleButton from './CircleButton';
-import styles from './Hero.module.css';
-import profileImg from '../assets/profile.jpg';
+import { motion } from 'framer-motion';
+import { PROFILE, CONTACT } from '../data/cv';
+import World from './World';
+import s from './hero.module.css';
 
-export default function Hero({ onOpenModal }) {
+const rise = {
+  hidden: { opacity: 0, y: 16 },
+  show: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: 0.06 * i, duration: 0.7, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
+
+export default function Hero({ onOpen }) {
   return (
-    <main className={styles.hero}>
-      {/* Profile image */}
-      <div className={styles.left}>
-        <div className={styles.profileOuter}>
-          <SpiralRing />
-          <div className={styles.profileWrap}>
-            <img src={profileImg} alt="Sakrit Kafle" className={styles.profileImg} />
-          </div>
-        </div>
+    <section className={s.hero} id="top">
+      <div className={s.intro}>
+        <motion.p className={s.chip} initial="hidden" animate="show" custom={0} variants={rise}>
+          <i className={s.dot} aria-hidden="true" />
+          {PROFILE.available}
+        </motion.p>
+
+        <motion.h1 className={s.title} initial="hidden" animate="show" custom={1} variants={rise}>
+          {PROFILE.name}
+          <span className={s.titleSub}>
+            I scope, build and <em>ship</em> full-stack products —
+            <br className={s.brk} /> then deploy them myself.
+          </span>
+        </motion.h1>
+
+        <motion.div className={s.meta} initial="hidden" animate="show" custom={2} variants={rise}>
+          <span>{PROFILE.roles[0]}</span>
+          <span className={s.sep} aria-hidden="true" />
+          <span>{PROFILE.roles[1]}</span>
+          <span className={s.sep} aria-hidden="true" />
+          <span>{PROFILE.location}</span>
+        </motion.div>
+
+        <motion.div className={s.actions} initial="hidden" animate="show" custom={3} variants={rise}>
+          <a className={s.primary} href="#contact">
+            Start a project
+          </a>
+          <a className={s.ghost} href="#work">
+            See the work
+          </a>
+          <a className={s.ghost} href={CONTACT.githubHref} target="_blank" rel="noreferrer">
+            GitHub ↗
+          </a>
+        </motion.div>
+
+        <motion.p
+          className={s.scribble}
+          initial={{ opacity: 0, rotate: -6 }}
+          animate={{ opacity: 1, rotate: -3 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+          aria-hidden="true"
+        >
+          the map below is real — go wander ↓
+        </motion.p>
       </div>
 
-      {/* Text + CTA */}
-      <div className={styles.right}>
-        <h1 className={styles.name}>Sakrit<br />Kafle</h1>
-        <p className={styles.role}>Full-Stack Developer</p>
-        <p className={styles.desc}>
-          I'm a full-stack developer experienced in client handling and IT
-          solutions — delivering tailored integrations. Passionate about
-          crafting seamless UIs and well-thought-out backends.
-        </p>
-
-        <div className={styles.circles}>
-          <CircleButton label="Skills"      color="amber" onClick={() => onOpenModal('skills')} />
-          <CircleButton label="Projects"    color="red"   onClick={() => onOpenModal('projects')} />
-          <CircleButton label="Experience"  color="cyan"  onClick={() => onOpenModal('experiences')} />
-        </div>
+      <div className={s.map}>
+        <World onOpen={onOpen} />
       </div>
-    </main>
+    </section>
   );
 }

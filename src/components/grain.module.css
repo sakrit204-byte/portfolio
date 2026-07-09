@@ -1,0 +1,23 @@
+.wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.noise {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.32;
+  mix-blend-mode: multiply;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(23, 19, 14, 0.05) 100%),
+    radial-gradient(100% 100% at 50% 100%, transparent 60%, rgba(23, 19, 14, 0.04) 100%);
+}
