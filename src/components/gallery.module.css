@@ -131,8 +131,8 @@
   display: grid;
   place-items: center;
   border: 1px dashed var(--line);
-  background-image: linear-gradient(rgba(148, 176, 214, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 176, 214, 0.05) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(150, 214, 168, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150, 214, 168, 0.05) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 
@@ -179,8 +179,8 @@
 }
 
 .cta {
-  background: linear-gradient(135deg, var(--cyan), #0ea5b7);
-  color: #04212a;
+  background: linear-gradient(135deg, var(--cyan), #16a34a);
+  color: #04210f;
   font-weight: 600;
 }
 

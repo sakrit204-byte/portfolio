@@ -318,6 +318,267 @@ export const EDUCATION = [
   },
 ];
 
+/* ================================================================== */
+/* THE COURSE — the 3D scene is an infographic of this CV.             */
+/* Each flag is a CV section; route holograms carry the detail.        */
+/* Coordinates are world units on the island (x right, z toward cam).  */
+/* ================================================================== */
+
+const nodeStudy = (id) => NODES.find((n) => n.id === id).study;
+
+export const COURSE_FLAGS = [
+  {
+    id: 'profile',
+    kind: 'home',
+    x: 0,
+    z: 12,
+    label: 'Profile',
+    kicker: 'CLUBHOUSE',
+    study: nodeStudy('home'),
+  },
+  {
+    id: 'studio',
+    kind: 'studio',
+    x: -48,
+    z: -16,
+    label: 'The Studio',
+    kicker: 'YADVERSE',
+    study: nodeStudy('yadverse'),
+  },
+  {
+    id: 'work',
+    kind: 'gov',
+    x: 46,
+    z: -20,
+    label: 'Client Work',
+    kicker: 'SHIPPED TO PRODUCTION',
+    study: {
+      title: 'Client Work',
+      role: 'Government · Product · Remote contracts',
+      org: 'BRCRN · Synexis · YourFleetElite',
+      period: '2025 – 2026',
+      summary:
+        'Three very different clients — a government ministry, a from-scratch product, and an Australian fleet company — every one of them shipped to production and kept running.',
+      groups: [
+        {
+          title: 'BRCRN Project — Government of Nepal',
+          bullets: [
+            'Android field app + web admin portal sharing one database across the full plantation lifecycle, covering 26 river systems.',
+            'AI-driven RAG tool that autonomously fetches and classifies ministry documents for the Churia Knowledge Centre.',
+            "Deployed onto the Project's on-site Government server via reverse proxy without disturbing any live systems.",
+          ],
+        },
+        {
+          title: 'Synexis CRM — Independent build',
+          bullets: [
+            'Complete CRM from scratch: contact management, deal pipelines, activity logs, JWT authentication.',
+            'REST APIs in Node.js/Express on a relational MySQL schema with role-based access control.',
+          ],
+        },
+        {
+          title: 'YourFleetElite — Australia · Remote',
+          bullets: [
+            'Built and maintained the production WordPress site for a fleet management company.',
+            'Zero downtime across every live deployment, delivered across time zones.',
+          ],
+        },
+      ],
+      stack: ['Android', 'React', 'FastAPI', 'Node.js', 'MySQL', 'PostgreSQL', 'WordPress', 'RAG'],
+      metrics: [
+        { value: '26', label: 'river systems' },
+        { value: '0', label: 'downtime incidents' },
+        { value: '12+', label: 'products shipped' },
+      ],
+    },
+  },
+  {
+    id: 'skills',
+    kind: 'product',
+    x: -52,
+    z: 28,
+    label: 'Tech Skills',
+    kicker: 'THE STACK',
+    study: {
+      title: 'Technical Skills',
+      role: 'Full-stack + AI/RAG',
+      org: 'Battle-tested in production',
+      period: 'Everything here has shipped in something real',
+      summary: 'Not a tutorial list — each of these carried a live system for a paying client.',
+      groups: SKILLS.map((g) => ({ title: g.group, bullets: [g.items.join(' · ')] })),
+    },
+  },
+  {
+    id: 'services',
+    kind: 'client',
+    x: 52,
+    z: 26,
+    label: 'Services',
+    kicker: 'WHAT I BUILD FOR YOU',
+    study: {
+      title: 'What I can build for you',
+      role: 'Fixed scope · weekly demos · production handover',
+      org: 'Freelance · Worldwide',
+      period: 'Booking now',
+      summary: 'You talk to the person writing the code — no account managers, no handoffs.',
+      groups: SERVICES.map((sv) => ({ title: sv.title, bullets: [sv.desc, sv.stack] })),
+      cta: true,
+    },
+  },
+  {
+    id: 'education',
+    kind: 'client',
+    x: -4,
+    z: -48,
+    label: 'Education',
+    kicker: 'THE FUNDAMENTALS',
+    study: {
+      title: 'Education',
+      role: 'B.Tech CSE — VIT Vellore (3rd year)',
+      org: 'Vellore Institute of Technology',
+      period: '2021 – Present',
+      summary: 'Engineering fundamentals studied under a production workload — the degree and the client work run in parallel.',
+      groups: EDUCATION.map((e) => ({
+        title: e.degree,
+        bullets: [`${e.detail} · ${e.school}`, `${e.place} · ${e.period}`],
+      })),
+    },
+  },
+  {
+    id: 'hire',
+    kind: 'beacon',
+    x: 6,
+    z: 50,
+    label: 'Hire Me',
+    kicker: 'THE 19TH HOLE',
+    study: {
+      ...nodeStudy('hire'),
+      groups: [
+        {
+          title: 'References',
+          bullets: [
+            'Kausher Ahmed P — Assistant Professor, VIT Vellore · kauserahmed@vit.ac.in',
+            'Binod Gyawali — Planning and Monitoring Officer, BRCRN Project, Ministry of Agriculture, Forest and Environment, Government of Nepal',
+          ],
+        },
+      ],
+    },
+  },
+];
+
+export const COURSE_LINKS = [
+  ['profile', 'studio'],
+  ['profile', 'work'],
+  ['profile', 'skills'],
+  ['profile', 'services'],
+  ['profile', 'education'],
+  ['profile', 'hire'],
+  ['studio', 'skills'],
+  ['work', 'services'],
+];
+
+/** Large holograms along the routes — the fine print of the CV. */
+export const ROUTE_HOLOS = [
+  {
+    id: 'h-yad',
+    x: -24,
+    z: -2,
+    kind: 'studio',
+    kicker: 'THE STUDIO',
+    title: 'YADverse',
+    lines: ['12+ products · 3 countries · 99.9% uptime', 'Web apps, AI products & hosting infrastructure', 'Reverse-proxy hosting, zero-downtime deploys'],
+  },
+  {
+    id: 'h-brcrn',
+    x: 24,
+    z: -4,
+    kind: 'gov',
+    kicker: 'GOVERNMENT OF NEPAL',
+    title: 'Plantation Monitoring',
+    lines: ['Android field app + web portal, one database', '26 river systems · 48 LRPs · 3 PPMUs', 'Running on a live government server'],
+  },
+  {
+    id: 'h-churia',
+    x: 38,
+    z: -36,
+    kind: 'gov',
+    kicker: 'AI / RAG',
+    title: 'Churia Knowledge Centre',
+    lines: ['RAG pipeline over ministry repositories', 'Auto-fetches & classifies documents', 'Journals · technical reports · pamphlets'],
+  },
+  {
+    id: 'h-synexis',
+    x: 30,
+    z: 14,
+    kind: 'product',
+    kicker: 'INDEPENDENT BUILD',
+    title: 'Synexis CRM',
+    lines: ['Contacts, pipelines, activity logs', 'JWT auth + role-based access', 'Node/Express · MySQL · REST'],
+  },
+  {
+    id: 'h-fleet',
+    x: 52,
+    z: 2,
+    kind: 'client',
+    kicker: 'AUSTRALIA · REMOTE',
+    title: 'YourFleetElite',
+    lines: ['Production WordPress, kept fast', 'Zero downtime on live deploys', 'Delivered across time zones'],
+  },
+  {
+    id: 'h-front',
+    x: -26,
+    z: 18,
+    kind: 'product',
+    kicker: 'FRONTEND',
+    title: 'React & Next.js',
+    lines: ['React.js · Next.js · Tailwind CSS', 'Flexbox · Grid · DOM manipulation'],
+  },
+  {
+    id: 'h-back',
+    x: -40,
+    z: 4,
+    kind: 'studio',
+    kicker: 'BACKEND',
+    title: 'APIs that hold up',
+    lines: ['Node.js · Express · FastAPI', 'REST · JWT auth · RBAC'],
+  },
+  {
+    id: 'h-ai',
+    x: -18,
+    z: -32,
+    kind: 'gov',
+    kicker: 'AI / RAG',
+    title: 'Retrieval pipelines',
+    lines: ['LangChain · LlamaIndex', 'Chroma · Pinecone', 'Document ingestion → knowledge bases'],
+  },
+  {
+    id: 'h-edu',
+    x: 6,
+    z: -30,
+    kind: 'client',
+    kicker: 'EDUCATION',
+    title: 'VIT Vellore',
+    lines: ['B.Tech CSE — 3rd year', 'Cambridge A Levels — Physics, Maths, CS'],
+  },
+  {
+    id: 'h-flow',
+    x: 2,
+    z: 32,
+    kind: 'beacon',
+    kicker: 'HOW WE WORK',
+    title: 'A simple process',
+    lines: ['Discovery call → fixed scope', 'Weekly demos → production handover', 'You talk to the person coding'],
+  },
+];
+
+/** Facts unlocked by playing the course games. */
+export const COURSE_FACTS = {
+  devops: { title: 'DevOps unlocked', text: 'Docker · GitHub Actions · CI/CD · Reverse-proxy · Linux admin' },
+  db: { title: 'Databases unlocked', text: 'MySQL · PostgreSQL · Supabase · Prisma' },
+  langs: { title: 'Languages unlocked', text: 'JavaScript · Python · HTML5 · CSS3 · C' },
+  tools: { title: 'Toolbelt unlocked', text: 'Git · Postman · Figma · Vercel' },
+  home: { title: 'Home base', text: 'Bhaktapur, Nepal — shipping across every time zone' },
+};
+
 export const REFERENCES = [
   {
     name: 'Kausher Ahmed P',

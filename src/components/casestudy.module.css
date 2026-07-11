@@ -183,7 +183,7 @@
   height: 6px;
   border-radius: 2px;
   background: var(--cyan);
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.7);
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
 }
 
 .group {
@@ -259,8 +259,8 @@
 }
 
 .ctaPrimary {
-  background: linear-gradient(135deg, var(--cyan), #0ea5b7);
-  color: #04212a;
+  background: linear-gradient(135deg, var(--cyan), #16a34a);
+  color: #04210f;
   font-weight: 600;
 }
 

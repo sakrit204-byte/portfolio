@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { GALLERY, LINKS, NODES } from '../data/cv';
-import { BOUNDS, DISCOVER, HOME_R, LEFT_HOME, NEAR, UNIT, createScene } from '../three/scene';
+import { COURSE_FACTS, COURSE_FLAGS, COURSE_LINKS, GALLERY, ROUTE_HOLOS } from '../data/cv';
+import { CART_R, DISCOVER, HOME_R, ISLAND, LEFT_HOME, NEAR, createScene } from '../three/scene';
 import Gallery from './Gallery';
 import s from './world.module.css';
 
 const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const TOTAL_FACTS = Object.keys(COURSE_FACTS).length;
 
-const START = new THREE.Vector3(0, 0, 5.4);
+const START = new THREE.Vector3(0, 0, 22);
 
 export default function World({ onOpen, paused = false }) {
   const stageRef = useRef(null);
@@ -23,6 +24,11 @@ export default function World({ onOpen, paused = false }) {
   const [gallery, setGallery] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [mode, setMode] = useState('ball');
+  const [nearCart, setNearCart] = useState(false);
+  const [holosOpen, setHolosOpen] = useState(0);
+  const [facts, setFacts] = useState(() => new Set());
+  const [toasts, setToasts] = useState([]);
 
   const sim = useRef({
     keys: new Set(),
@@ -31,6 +37,7 @@ export default function World({ onOpen, paused = false }) {
     yawTarget: 0,
     activeId: null,
     discovered: new Set(),
+    facts: new Set(),
     drag: null,
     dragMoved: false,
     visible: true,
@@ -39,7 +46,11 @@ export default function World({ onOpen, paused = false }) {
     leftHome: false,
     galleryDone: false,
     hoverId: null,
+    mode: 'ball',
+    nearCart: false,
   });
+
+  const worldRef = useRef(null);
 
   useEffect(() => {
     sim.current.paused = paused || gallery;
@@ -48,7 +59,7 @@ export default function World({ onOpen, paused = false }) {
 
   const openNode = useCallback(
     (id) => {
-      const node = NODES.find((n) => n.id === id);
+      const node = COURSE_FLAGS.find((n) => n.id === id);
       if (!node) return;
       const S = sim.current;
       if (!S.discovered.has(id)) {
@@ -59,6 +70,11 @@ export default function World({ onOpen, paused = false }) {
     },
     [onOpen],
   );
+
+  const pushToast = useCallback((toast) => {
+    setToasts((t) => [...t.slice(-2), toast]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.key !== toast.key)), 6500);
+  }, []);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -72,16 +88,24 @@ export default function World({ onOpen, paused = false }) {
 
     let world;
     try {
-      world = createScene(canvas, { nodes: NODES, links: LINKS, gallery: GALLERY, calm: S.calm, coarse: isCoarse });
+      world = createScene(canvas, {
+        flags: COURSE_FLAGS,
+        links: COURSE_LINKS,
+        holos: ROUTE_HOLOS,
+        gallery: GALLERY,
+        calm: S.calm,
+        coarse: isCoarse,
+      });
     } catch (err) {
       console.error('WebGL unavailable:', err);
       setFailed(true);
       return;
     }
+    worldRef.current = world;
     setReady(true);
 
-    const { renderer, scene, camera, nodeObjs, byId, player, raycaster } = world;
-    const homeObj = byId.home;
+    const { renderer, scene, camera, nodeObjs, byId, player, cart, cartState, raycaster } = world;
+    const homeObj = byId.profile;
 
     player.position.copy(START);
     const camPos = new THREE.Vector3();
@@ -99,6 +123,32 @@ export default function World({ onOpen, paused = false }) {
     const io = new IntersectionObserver((es) => (S.visible = es[0].isIntersecting), { threshold: 0.02 });
     io.observe(stage);
 
+    /* ---------- vehicle helpers ---------- */
+    const vehiclePos = () => (S.mode === 'cart' ? cart.group.position : player.position);
+
+    const enterCart = () => {
+      S.mode = 'cart';
+      setMode('cart');
+      player.visible = false;
+      cartState.speed = 0;
+      S.vel.set(0, 0, 0);
+      S.yawTarget = cartState.heading;
+    };
+
+    const exitCart = () => {
+      S.mode = 'ball';
+      setMode('ball');
+      const h = cartState.heading;
+      player.position.set(
+        cart.group.position.x + Math.cos(h) * 2.2,
+        0,
+        cart.group.position.z - Math.sin(h) * 2.2,
+      );
+      player.visible = true;
+      S.vel.set(0, 0, 0);
+      cartState.speed = 0;
+    };
+
     /* ---------- input ---------- */
     const onKeyDown = (e) => {
       if (!S.visible || S.paused) return;
@@ -110,6 +160,11 @@ export default function World({ onOpen, paused = false }) {
         e.preventDefault();
       } else if (k === 'e' && S.activeId) {
         openNode(S.activeId);
+      } else if (k === 'i') {
+        if (S.mode === 'cart') exitCart();
+        else if (S.nearCart) enterCart();
+      } else if (k === 'c') {
+        world.closeHolos();
       }
     };
     const onKeyUp = (e) => S.keys.delete(e.key.toLowerCase());
@@ -118,7 +173,7 @@ export default function World({ onOpen, paused = false }) {
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
 
-    /* ---------- pointer: drag orbits, click picks a flag ---------- */
+    /* ---------- pointer ---------- */
     const pointer = new THREE.Vector2();
     let hasPointer = false;
 
@@ -153,7 +208,6 @@ export default function World({ onOpen, paused = false }) {
 
     const onClick = () => {
       if (S.dragMoved) return;
-      // touch devices have no hover state — resolve the tap through the raycaster
       if (isCoarse) {
         raycaster.setFromCamera(pointer, camera);
         const hit = raycaster.intersectObjects(world.pickMeshes, false)[0];
@@ -179,6 +233,15 @@ export default function World({ onOpen, paused = false }) {
     const right = new THREE.Vector3();
     const projected = new THREE.Vector3();
 
+    const clampIsland = (pos, vel) => {
+      const e = Math.hypot(pos.x / ISLAND.rx, pos.z / ISLAND.rz);
+      if (e > 1) {
+        pos.x /= e;
+        pos.z /= e;
+        vel.multiplyScalar(0.2); // the water is the wall
+      }
+    };
+
     const frame = (now) => {
       raf = requestAnimationFrame(frame);
       const dt = clamp((now - last) / 1000, 0, 0.05);
@@ -186,7 +249,6 @@ export default function World({ onOpen, paused = false }) {
       if (!S.visible) return;
       clock += dt;
 
-      /* movement, relative to where the camera is looking */
       let ix = 0;
       let iz = 0;
       if (!S.paused) {
@@ -196,27 +258,44 @@ export default function World({ onOpen, paused = false }) {
         if (S.keys.has('s') || S.keys.has('arrowdown')) iz += 1;
       }
 
-      S.yaw += (S.yawTarget - S.yaw) * (1 - Math.pow(0.001, dt));
+      if (S.mode === 'ball') {
+        S.yaw += (S.yawTarget - S.yaw) * (1 - Math.pow(0.001, dt));
+        fwd.set(Math.sin(S.yaw), 0, Math.cos(S.yaw));
+        right.set(Math.cos(S.yaw), 0, -Math.sin(S.yaw));
 
-      fwd.set(Math.sin(S.yaw), 0, Math.cos(S.yaw));
-      right.set(Math.cos(S.yaw), 0, -Math.sin(S.yaw));
+        const accel = new THREE.Vector3().addScaledVector(right, ix).addScaledVector(fwd, iz);
+        if (accel.lengthSq() > 0) accel.normalize().multiplyScalar(92 * dt);
 
-      const accel = new THREE.Vector3().addScaledVector(right, ix).addScaledVector(fwd, iz);
-      if (accel.lengthSq() > 0) accel.normalize().multiplyScalar(74 * dt);
+        S.vel.add(accel).multiplyScalar(Math.pow(0.0016, dt));
+        player.position.addScaledVector(S.vel, dt);
+        clampIsland(player.position, S.vel);
+      } else {
+        /* cart: throttle + steering */
+        cartState.speed += -iz * 34 * dt;
+        cartState.speed *= Math.pow(0.18, dt);
+        cartState.speed = clamp(cartState.speed, -9, 26);
+        const steerAuthority = clamp(Math.abs(cartState.speed) / 10, 0, 1);
+        cartState.heading -= ix * dt * 1.9 * steerAuthority * Math.sign(cartState.speed || 1);
 
-      S.vel.add(accel).multiplyScalar(Math.pow(0.0016, dt));
-      player.position.addScaledVector(S.vel, dt);
-      player.position.x = clamp(player.position.x, -BOUNDS.x, BOUNDS.x);
-      player.position.z = clamp(player.position.z, BOUNDS.zMin, BOUNDS.zMax);
+        const dirX = -Math.sin(cartState.heading);
+        const dirZ = -Math.cos(cartState.heading);
+        S.vel.set(dirX * cartState.speed, 0, dirZ * cartState.speed);
+        cart.group.position.x += S.vel.x * dt;
+        cart.group.position.z += S.vel.z * dt;
+        clampIsland(cart.group.position, S.vel);
+        cartState.speed = Math.hypot(S.vel.x, S.vel.z) * Math.sign(cartState.speed || 1);
+        cart.group.rotation.y = cartState.heading;
+        S.yawTarget = cartState.heading;
+        S.yaw += (S.yawTarget - S.yaw) * (1 - Math.pow(0.004, dt));
+      }
 
-      /* camera: chase from behind-and-above, orbiting with yaw */
-      camPos.set(
-        player.position.x + Math.sin(S.yaw) * 16.5,
-        12,
-        player.position.z + Math.cos(S.yaw) * 16.5,
-      );
+      const pos = vehiclePos();
+
+      /* camera chase */
+      const dist = S.mode === 'cart' ? 19 : 16.5;
+      camPos.set(pos.x + Math.sin(S.yaw) * dist, S.mode === 'cart' ? 13 : 12, pos.z + Math.cos(S.yaw) * dist);
       camera.position.lerp(camPos, S.calm ? 1 : 1 - Math.pow(0.0009, dt));
-      camLook.copy(player.position).setY(2);
+      camLook.copy(pos).setY(2);
       camera.lookAt(camLook);
 
       /* proximity + discovery */
@@ -224,7 +303,7 @@ export default function World({ onOpen, paused = false }) {
       let bestD = Infinity;
       let changed = false;
       for (const o of nodeObjs) {
-        const d = o.base.distanceTo(player.position);
+        const d = o.base.distanceTo(pos);
         if (d < bestD) {
           bestD = d;
           near = o;
@@ -242,10 +321,31 @@ export default function World({ onOpen, paused = false }) {
         setActiveId(nextActive);
       }
 
-      /* clubhouse -> gallery, once the player has actually left it */
-      const dHome = homeObj.base.distanceTo(player.position);
+      /* near the parked cart? */
+      if (S.mode === 'ball') {
+        const dCart = cart.group.position.distanceTo(player.position);
+        const nc = dCart < CART_R;
+        if (nc !== S.nearCart) {
+          S.nearCart = nc;
+          setNearCart(nc);
+        }
+      } else if (S.nearCart) {
+        S.nearCart = false;
+        setNearCart(false);
+      }
+
+      /* clubhouse gallery — only greets a player who arrives and slows down,
+         never one passing through at speed or driving the cart */
+      const dHome = homeObj.base.distanceTo(pos);
       if (dHome > LEFT_HOME) S.leftHome = true;
-      if (S.leftHome && dHome < HOME_R && !S.galleryDone && !S.paused) {
+      if (
+        S.leftHome &&
+        dHome < HOME_R &&
+        !S.galleryDone &&
+        !S.paused &&
+        S.mode === 'ball' &&
+        S.vel.length() < 3.5
+      ) {
         S.galleryDone = true;
         setGallery(true);
       }
@@ -263,18 +363,36 @@ export default function World({ onOpen, paused = false }) {
       }
 
       world.update(dt, clock, {
+        pos,
+        vel: S.vel,
+        mode: S.mode,
         active: S.activeId,
         hover: S.hoverId,
         discovered: S.discovered,
-        vel: S.vel,
       });
 
+      /* drain scene events into toasts/facts */
+      while (world.events.length) {
+        const ev = world.events.shift();
+        if (ev.type === 'fact' && !S.facts.has(ev.id)) {
+          S.facts.add(ev.id);
+          setFacts(new Set(S.facts));
+          const f = COURSE_FACTS[ev.id];
+          if (f) pushToast({ key: `${ev.id}-${Math.round(clock * 1000)}`, title: f.title, text: f.text });
+        } else if (ev.type === 'pins') {
+          pushToast({
+            key: `pins-${ev.downed}`,
+            title: `Pins down — ${ev.downed}/${ev.total}`,
+            text: 'Knock them all for a secret.',
+          });
+        }
+      }
+
       renderer.render(scene, camera);
-      paintDom();
+      paintDom(pos);
     };
 
-    /* Off-screen flag arrows + minimap player dot. */
-    const paintDom = () => {
+    const paintDom = (pos) => {
       const w = renderer.domElement.clientWidth;
       const h = renderer.domElement.clientHeight;
       const pad = 42;
@@ -282,30 +400,29 @@ export default function World({ onOpen, paused = false }) {
       for (const o of nodeObjs) {
         const arrow = arrowRefs.current[o.id];
         if (!arrow) continue;
-        projected.copy(o.base).setY(3.4).project(camera);
-
+        projected.copy(o.base).setY(3.6).project(camera);
         const behind = projected.z > 1;
         const sx = (projected.x * 0.5 + 0.5) * w;
         const sy = (-projected.y * 0.5 + 0.5) * h;
         const onScreen = !behind && sx > pad && sx < w - pad && sy > pad && sy < h - pad;
-
         arrow.style.opacity = onScreen ? '0' : '1';
         if (!onScreen) {
           const dx = (behind ? -projected.x : projected.x) * (w / 2);
           const dy = (behind ? projected.y : -projected.y) * (h / 2);
           const ang = Math.atan2(dy, dx);
-          const ex = clamp(w / 2 + dx, pad, w - pad);
-          const ey = clamp(h / 2 + dy, pad, h - pad);
-          arrow.style.transform = `translate3d(${ex}px, ${ey}px, 0) rotate(${ang}rad)`;
+          arrow.style.transform = `translate3d(${clamp(w / 2 + dx, pad, w - pad)}px, ${clamp(h / 2 + dy, pad, h - pad)}px, 0) rotate(${ang}rad)`;
         }
       }
 
       if (playerDotRef.current) {
-        const mx = ((player.position.x + BOUNDS.x) / (BOUNDS.x * 2)) * 100;
-        const my = ((player.position.z - BOUNDS.zMin) / (BOUNDS.zMax - BOUNDS.zMin)) * 100;
+        const mx = ((pos.x + ISLAND.rx) / (ISLAND.rx * 2)) * 100;
+        const my = ((pos.z + ISLAND.rz) / (ISLAND.rz * 2)) * 100;
         playerDotRef.current.style.left = `${mx}%`;
         playerDotRef.current.style.top = `${my}%`;
       }
+
+      const openCount = world.openHoloCount();
+      setHolosOpen((v) => (v === openCount ? v : openCount));
     };
 
     raf = requestAnimationFrame(frame);
@@ -324,7 +441,7 @@ export default function World({ onOpen, paused = false }) {
       stage.removeEventListener('click', onClick);
       world.dispose();
     };
-  }, [openNode]);
+  }, [openNode, pushToast]);
 
   const recentre = () => {
     const S = sim.current;
@@ -333,11 +450,11 @@ export default function World({ onOpen, paused = false }) {
   };
 
   const found = discovered.size;
-  const total = NODES.length;
-  const activeNode = activeId ? NODES.find((n) => n.id === activeId) : null;
+  const total = COURSE_FLAGS.length;
+  const activeNode = activeId ? COURSE_FLAGS.find((n) => n.id === activeId) : null;
 
   return (
-    <div className={s.stage} ref={stageRef}>
+    <div className={s.stage} ref={stageRef} data-mode={mode}>
       <canvas ref={canvasRef} className={s.canvas} />
 
       {failed && (
@@ -347,17 +464,16 @@ export default function World({ onOpen, paused = false }) {
         </div>
       )}
 
-      {/* Keyboard / screen-reader access to every flag, independent of the 3D picking. */}
       <nav aria-label="Course flags">
-        {NODES.map((n) => (
+        {COURSE_FLAGS.map((n) => (
           <button key={n.id} className="srOnly" onClick={() => openNode(n.id)}>
-            {n.label} — {n.kicker}. Open case study.
+            {n.label} — {n.kicker}. Open this CV section.
           </button>
         ))}
       </nav>
 
       <div className={s.arrows} aria-hidden="true">
-        {NODES.map((n) => (
+        {COURSE_FLAGS.map((n) => (
           <span
             key={n.id}
             className={s.arrow}
@@ -373,43 +489,81 @@ export default function World({ onOpen, paused = false }) {
         ))}
       </div>
 
-      {/* The inspect prompt: its own clean element, nothing else attached. */}
-      {activeNode && (
-        <button className={s.prompt} onClick={() => openNode(activeNode.id)}>
-          {coarse ? (
-            <span className={s.promptText}>
-              Tap to inspect — <b>{activeNode.label}</b>
-            </span>
-          ) : (
-            <>
-              <kbd className={s.promptKey}>E</kbd>
+      {/* prompt stack: inspect / cart, each its own clean pill */}
+      <div className={s.prompts}>
+        {activeNode && (
+          <button className={s.prompt} onClick={() => openNode(activeNode.id)}>
+            {coarse ? (
               <span className={s.promptText}>
-                inspect <b>{activeNode.label}</b>
+                Tap to inspect — <b>{activeNode.label}</b>
               </span>
-            </>
-          )}
+            ) : (
+              <>
+                <kbd className={s.promptKey}>E</kbd>
+                <span className={s.promptText}>
+                  inspect <b>{activeNode.label}</b>
+                </span>
+              </>
+            )}
+          </button>
+        )}
+        {!coarse && nearCart && mode === 'ball' && (
+          <span className={s.prompt} data-tone="cart">
+            <kbd className={s.promptKey}>I</kbd>
+            <span className={s.promptText}>
+              drive the <b>golf cart</b>
+            </span>
+          </span>
+        )}
+        {!coarse && mode === 'cart' && (
+          <span className={s.prompt} data-tone="cart">
+            <kbd className={s.promptKey}>I</kbd>
+            <span className={s.promptText}>hop out</span>
+          </span>
+        )}
+      </div>
+
+      {holosOpen > 0 && !coarse && (
+        <button className={s.closeChip} onClick={() => worldRef.current?.closeHolos()}>
+          <kbd>C</kbd> close holograms ({holosOpen})
         </button>
       )}
 
+      {/* fact toasts */}
+      <div className={s.toasts} role="status" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.key} className={s.toast}>
+            <strong>{t.title}</strong>
+            <span>{t.text}</span>
+          </div>
+        ))}
+      </div>
+
       {/* HUD */}
       <div className={s.hudTop}>
-        <div className={s.counter} role="status" aria-live="polite">
-          <span className="srOnly">
-            {found} of {total} flags reached
-          </span>
-          <span className={s.counterNum} aria-hidden="true">
+        <div className={s.counter}>
+          <span className={s.counterNum}>
             {String(found).padStart(2, '0')}
             <i>/</i>
             {String(total).padStart(2, '0')}
           </span>
-          <span className={s.counterLabel} aria-hidden="true">
-            flags reached
-          </span>
+          <span className={s.counterLabel}>cv sections</span>
           <span className={s.meter} aria-hidden="true">
             <i style={{ transform: `scaleX(${found / total})` }} />
           </span>
         </div>
-        {found === total && <span className={s.complete}>// course complete</span>}
+        <div className={s.counter}>
+          <span className={s.counterNum}>
+            {String(facts.size).padStart(2, '0')}
+            <i>/</i>
+            {String(TOTAL_FACTS).padStart(2, '0')}
+          </span>
+          <span className={s.counterLabel}>secrets</span>
+          <span className={s.meter} aria-hidden="true">
+            <i style={{ transform: `scaleX(${facts.size / TOTAL_FACTS})` }} />
+          </span>
+        </div>
+        {found === total && <span className={s.complete}>// cv fully explored</span>}
       </div>
 
       <div className={s.hudBottom}>
@@ -423,7 +577,7 @@ export default function World({ onOpen, paused = false }) {
               <kbd>W</kbd>
               <kbd>A</kbd>
               <kbd>S</kbd>
-              <kbd>D</kbd> roll the ball · <b>drag</b> to orbit
+              <kbd>D</kbd> move · <kbd>I</kbd> cart · <kbd>C</kbd> close · <b>drag</b> orbits
             </>
           )}
         </p>
@@ -436,15 +590,15 @@ export default function World({ onOpen, paused = false }) {
       </div>
 
       <div className={s.minimap} aria-hidden="true">
-        {NODES.map((n) => (
+        {COURSE_FLAGS.map((n) => (
           <span
             key={n.id}
             className={s.mmNode}
             data-kind={n.kind}
             data-found={discovered.has(n.id) || undefined}
             style={{
-              left: `${((n.x / UNIT + BOUNDS.x) / (BOUNDS.x * 2)) * 100}%`,
-              top: `${((n.y / UNIT - BOUNDS.zMin) / (BOUNDS.zMax - BOUNDS.zMin)) * 100}%`,
+              left: `${((n.x + ISLAND.rx) / (ISLAND.rx * 2)) * 100}%`,
+              top: `${((n.z + ISLAND.rz) / (ISLAND.rz * 2)) * 100}%`,
             }}
           />
         ))}

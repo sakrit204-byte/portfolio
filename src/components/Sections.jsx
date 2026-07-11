@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, useInView, useReducedMotion } from 'framer-motion';
+import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import Reveal, { Heading } from './Reveal';
 import { CONTACT, EDUCATION, NODES, PROFILE, REFERENCES, SERVICES, SKILLS, STATS } from '../data/cv';
 import s from './sections.module.css';
@@ -66,44 +66,102 @@ export function Stats() {
 
 /* ------------------------------------------------------------------ */
 
+function CaseCard({ n, onOpen }) {
+  return (
+    <button className={s.caseCard} data-kind={n.kind} onClick={() => onOpen(n)}>
+      <span className={s.caseTop}>
+        <span className={s.caseKicker}>{n.kicker}</span>
+        <span className={s.casePeriod}>{n.study.period}</span>
+      </span>
+
+      <h3 className={s.caseTitle}>{n.study.title}</h3>
+      <p className={s.caseRole}>{n.study.role}</p>
+      <p className={s.caseDesc}>{n.study.summary}</p>
+
+      <span className={s.caseChips}>
+        {n.study.stack.slice(0, 4).map((t) => (
+          <span key={t}>{t}</span>
+        ))}
+        {n.study.stack.length > 4 && <span>+{n.study.stack.length - 4}</span>}
+      </span>
+
+      <span className={s.caseOpen}>
+        Read case study <i aria-hidden="true">→</i>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Work: a pinned horizontal rail. Scrolling the page drives the cards
+ * sideways; the shift is measured from the real track width so it works
+ * at every viewport. Falls back to a grid under prefers-reduced-motion.
+ */
 export function Work({ onOpen }) {
   const cases = CASE_IDS.map((id) => NODES.find((n) => n.id === id)).filter(Boolean);
+  const calm = useReducedMotion();
+  const ref = useRef(null);
+  const trackRef = useRef(null);
+  const [shift, setShift] = useState(0);
+
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] });
+  const x = useTransform(scrollYProgress, [0.03, 0.97], [0, -shift]);
+
+  useEffect(() => {
+    if (calm) return;
+    const track = trackRef.current;
+    if (!track) return;
+    const measure = () =>
+      setShift(Math.max(0, track.scrollWidth - track.parentElement.clientWidth + 40));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(track);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [calm]);
+
+  if (calm) {
+    return (
+      <section className={s.section} id="work">
+        <div className={s.wrap}>
+          <Heading aside="click any card" title="Shipped to production, and kept running." />
+          <div className={s.caseGrid}>
+            {cases.map((n) => (
+              <CaseCard key={n.id} n={n} onOpen={onOpen} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className={s.section} id="work">
-      <div className={s.wrap}>
-        <Heading
-          aside="click any card"
-          title="Shipped to production, and kept running."
-          lead="Government systems, a studio, a CRM built from nothing, and an international commercial client. Every one of these went live."
-        />
-
-        <div className={s.caseGrid}>
-          {cases.map((n, i) => (
-            <Reveal key={n.id} delay={i * 0.06}>
-              <button className={s.caseCard} data-kind={n.kind} onClick={() => onOpen(n)}>
-                <span className={s.caseTop}>
-                  <span className={s.caseKicker}>{n.kicker}</span>
-                  <span className={s.casePeriod}>{n.study.period}</span>
-                </span>
-
-                <h3 className={s.caseTitle}>{n.study.title}</h3>
-                <p className={s.caseRole}>{n.study.role}</p>
-                <p className={s.caseDesc}>{n.study.summary}</p>
-
-                <span className={s.caseChips}>
-                  {n.study.stack.slice(0, 4).map((t) => (
-                    <span key={t}>{t}</span>
-                  ))}
-                  {n.study.stack.length > 4 && <span>+{n.study.stack.length - 4}</span>}
-                </span>
-
-                <span className={s.caseOpen}>
-                  Read case study <i aria-hidden="true">→</i>
-                </span>
-              </button>
-            </Reveal>
+    <section className={s.workPin} id="work" ref={ref}>
+      <div className={s.workSticky}>
+        <div className={s.wrap}>
+          <Heading
+            aside="keep scrolling — the rail drives"
+            title="Shipped to production, and kept running."
+          />
+        </div>
+        <motion.div className={s.workTrack} ref={trackRef} style={{ x }}>
+          {cases.map((n) => (
+            <div key={n.id} className={s.railItem}>
+              <CaseCard n={n} onOpen={onOpen} />
+            </div>
           ))}
+          <a className={s.railCta} href="#contact">
+            <span>Your project</span>
+            <strong>
+              goes here <i aria-hidden="true">→</i>
+            </strong>
+          </a>
+        </motion.div>
+        <div className={s.railProgress} aria-hidden="true">
+          <motion.i style={{ scaleX: scrollYProgress }} />
         </div>
       </div>
     </section>
@@ -112,20 +170,43 @@ export function Work({ onOpen }) {
 
 /* ------------------------------------------------------------------ */
 
-export function Services() {
-  return (
-    <section className={s.section} id="services">
-      <div className={s.wrap}>
-        <Heading
-          aside="what you're buying"
-          title="What I can build for you."
-          lead="Fixed scope, weekly demos, and a production handover you actually own. No account managers — you talk to the person writing the code."
-        />
+function DeckCard({ sv, i, total, progress }) {
+  // Cards pin at the same spot and stack; earlier cards shrink away
+  // as later ones scroll over them.
+  const scale = useTransform(progress, [i / total, 1], [1, 1 - (total - i) * 0.045]);
+  const fade = useTransform(progress, [i / total, Math.min(1, (i + 2.2) / total)], [1, 0.55]);
 
-        <div className={s.serviceGrid}>
-          {SERVICES.map((sv, i) => (
-            <Reveal key={sv.title} delay={(i % 3) * 0.06}>
-              <article className={s.service}>
+  return (
+    <div className={s.deckSlot}>
+      <motion.article className={s.deckCard} style={{ scale, opacity: fade, top: `calc(var(--nav-h) + ${28 + i * 22}px)` }}>
+        <span className={s.deckIndex}>{String(i + 1).padStart(2, '0')}</span>
+        <span className={s.serviceIcon} aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path d={sv.glyph} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+        <h3>{sv.title}</h3>
+        <p>{sv.desc}</p>
+        <p className={s.serviceStack}>{sv.stack}</p>
+      </motion.article>
+    </div>
+  );
+}
+
+/** Services: a scroll-stacking deck — each card pins and the next slides over it. */
+export function Services() {
+  const calm = useReducedMotion();
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] });
+
+  if (calm) {
+    return (
+      <section className={s.section} id="services">
+        <div className={s.wrap}>
+          <Heading aside="what you're buying" title="What I can build for you." />
+          <div className={s.serviceGrid}>
+            {SERVICES.map((sv) => (
+              <article key={sv.title} className={s.service}>
                 <span className={s.serviceIcon} aria-hidden="true">
                   <svg viewBox="0 0 24 24" width="22" height="22">
                     <path d={sv.glyph} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -135,7 +216,25 @@ export function Services() {
                 <p>{sv.desc}</p>
                 <p className={s.serviceStack}>{sv.stack}</p>
               </article>
-            </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className={s.section} id="services" ref={ref}>
+      <div className={s.wrap}>
+        <Heading
+          aside="scroll — the deck stacks"
+          title="What I can build for you."
+          lead="Fixed scope, weekly demos, and a production handover you actually own. No account managers — you talk to the person writing the code."
+        />
+
+        <div className={s.deck}>
+          {SERVICES.map((sv, i) => (
+            <DeckCard key={sv.title} sv={sv} i={i} total={SERVICES.length} progress={scrollYProgress} />
           ))}
         </div>
       </div>
