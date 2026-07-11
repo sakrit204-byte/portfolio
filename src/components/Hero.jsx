@@ -12,6 +12,8 @@ const rise = {
   }),
 };
 
+const STACK = ['React', 'Node.js', 'FastAPI', 'PostgreSQL', 'Docker', 'LangChain'];
+
 export default function Hero({ onOpen, paused }) {
   return (
     <section className={s.hero} id="top">
@@ -22,19 +24,19 @@ export default function Hero({ onOpen, paused }) {
         </motion.p>
 
         <motion.h1 className={s.title} initial="hidden" animate="show" custom={1} variants={rise}>
-          {PROFILE.name}
+          <span className={s.name}>{PROFILE.name}</span>
           <span className={s.titleSub}>
-            I scope, build and <em>ship</em> full-stack products —
-            <br className={s.brk} /> then deploy them myself.
+            I build full-stack systems and <em>ship them to production</em> — web apps, CRMs, REST APIs and AI/RAG
+            pipelines.
           </span>
         </motion.h1>
 
         <motion.div className={s.meta} initial="hidden" animate="show" custom={2} variants={rise}>
-          <span>{PROFILE.roles[0]}</span>
-          <span className={s.sep} aria-hidden="true" />
-          <span>{PROFILE.roles[1]}</span>
-          <span className={s.sep} aria-hidden="true" />
-          <span>{PROFILE.location}</span>
+          {STACK.map((t) => (
+            <span key={t} className={s.tag}>
+              {t}
+            </span>
+          ))}
         </motion.div>
 
         <motion.div className={s.actions} initial="hidden" animate="show" custom={3} variants={rise}>
@@ -51,19 +53,13 @@ export default function Hero({ onOpen, paused }) {
             GitHub ↗
           </a>
         </motion.div>
-
-        <motion.p
-          className={s.scribble}
-          initial={{ opacity: 0, rotate: -6 }}
-          animate={{ opacity: 1, rotate: -3 }}
-          transition={{ delay: 0.8, duration: 0.6 }}
-          aria-hidden="true"
-        >
-          the map below is real — go wander ↓
-        </motion.p>
       </div>
 
       <div className={s.map}>
+        <span className={s.mapTag} aria-hidden="true">
+          <i />
+          interactive_scene.gl — walk it
+        </span>
         <World onOpen={onOpen} paused={paused} />
       </div>
     </section>

@@ -54,12 +54,12 @@ export default function Gallery({ open, onClose }) {
                 <i className={s.badge} aria-hidden="true">
                   ★
                 </i>
-                Base camp reached
+                Base node reached
               </p>
               <h2 className={s.title} id="gal-title">
-                The work, in pictures.
+                The systems, on screen.
               </h2>
-              <p className={s.lead}>Screens from the systems behind the markers you’ve been walking across.</p>
+              <p className={s.lead}>Interfaces from the projects behind the nodes you’ve been walking between.</p>
             </header>
 
             <div className={s.grid}>

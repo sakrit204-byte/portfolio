@@ -7,49 +7,53 @@
 }
 
 :root {
-  /* Ink */
-  --ink: #1a1410;
-  --ink-2: #4a3f33;
-  --ink-3: #7d6f5f;
-  --ink-4: #a89880;
+  /* Surfaces — deep space, cool not warm */
+  --bg: #05070c;
+  --bg-2: #080b13;
+  --panel: #0c111c;
+  --panel-2: #111827;
+  --raise: #161e2e;
 
-  /* Paper */
-  --paper: #f6f1e6;
-  --paper-2: #efe8d8;
-  --paper-3: #e4dac5;
-  --paper-card: #fdfaf2;
+  /* Text */
+  --fg: #e8eef8;
+  --fg-2: #a7b3c6;
+  --fg-3: #6c7a91;
+  --fg-4: #46536a;
 
   /* Accents */
-  --amber: #dd8412;
-  --amber-soft: #f6c76a;
-  --amber-wash: #fbeacb;
-  --rust: #a83c0f;
-  --sage: #4a7350;
+  --cyan: #22d3ee;
+  --violet: #a78bfa;
+  --emerald: #34d399;
+  --sky: #38bdf8;
+  --amber: #fbbf24;
+  --rose: #fb7185;
 
-  /* Per-project accents — also keyed off [data-kind] on map markers. */
-  --k-home: #dd8412;
-  --k-studio: #b4530a;
-  --k-gov: #3f6b53;
-  --k-product: #7c3f5e;
-  --k-client: #2d5a78;
-  --k-beacon: #dd8412;
+  --accent: var(--cyan);
 
-  --line: rgba(26, 20, 16, 0.14);
-  --line-soft: rgba(26, 20, 16, 0.07);
+  /* Per-project accents — shared by 3D markers and work cards */
+  --k-home: #22d3ee;
+  --k-studio: #a78bfa;
+  --k-gov: #34d399;
+  --k-product: #f472b6;
+  --k-client: #38bdf8;
+  --k-beacon: #fbbf24;
 
-  --shadow-sm: 0 1px 2px rgba(26, 20, 16, 0.05), 0 2px 8px rgba(26, 20, 16, 0.04);
-  --shadow-md: 0 2px 6px rgba(26, 20, 16, 0.06), 0 12px 32px rgba(26, 20, 16, 0.09);
-  --shadow-lg: 0 4px 12px rgba(26, 20, 16, 0.08), 0 30px 70px rgba(26, 20, 16, 0.16);
+  --line: rgba(148, 176, 214, 0.14);
+  --line-soft: rgba(148, 176, 214, 0.08);
+  --glow: rgba(34, 211, 238, 0.5);
 
-  --serif: 'DM Serif Display', Georgia, serif;
-  --sans: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --hand: 'Caveat', cursive;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45), 0 16px 44px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5), 0 40px 90px rgba(0, 0, 0, 0.6);
+
+  --display: 'Space Grotesk', system-ui, sans-serif;
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --radius: 14px;
-  --radius-lg: 22px;
+  --radius: 12px;
+  --radius-lg: 18px;
 
-  --nav-h: 68px;
+  --nav-h: 66px;
   --gutter: clamp(20px, 5vw, 76px);
   --maxw: 1240px;
 
@@ -58,22 +62,17 @@
 
 html {
   scroll-behavior: smooth;
-  /* Anchor targets clear the fixed nav. */
   scroll-padding-top: calc(var(--nav-h) + 24px);
+  color-scheme: dark;
 }
 
 body {
   font-family: var(--sans);
-  background:
-    radial-gradient(120% 80% at 15% -10%, #fdfaf3 0%, transparent 55%),
-    radial-gradient(100% 70% at 95% 5%, #fbf0dc 0%, transparent 50%),
-    linear-gradient(180deg, var(--paper) 0%, #f2ebdd 100%);
-  background-attachment: fixed;
-  color: var(--ink);
+  background: var(--bg);
+  color: var(--fg);
   min-height: 100vh;
   overflow-x: hidden;
   line-height: 1.6;
-  font-synthesis-weight: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
@@ -97,17 +96,32 @@ a {
 }
 
 ::selection {
-  background: var(--amber-soft);
-  color: var(--ink);
+  background: rgba(34, 211, 238, 0.28);
+  color: #fff;
 }
 
 :focus-visible {
-  outline: 2px solid var(--amber);
+  outline: 2px solid var(--cyan);
   outline-offset: 3px;
   border-radius: 4px;
 }
 
-/* Screen-reader-only, but focusable (skip link). */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-2);
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2838;
+  border-radius: 6px;
+  border: 2px solid var(--bg-2);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3648;
+}
+
 .srOnly {
   position: absolute;
   width: 1px;
@@ -128,12 +142,12 @@ a {
   clip: auto;
   clip-path: none;
   padding: 10px 16px;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--cyan);
+  color: #05070c;
   border-radius: 8px;
+  font-weight: 600;
 }
 
-/* Hide the native cursor only where our custom one is active. */
 body[data-cursor='on'],
 body[data-cursor='on'] * {
   cursor: none;
@@ -141,28 +155,35 @@ body[data-cursor='on'] * {
 
 /* Shared section furniture (used by the <Heading> component). */
 .secAside {
-  font-family: var(--hand);
-  font-size: 22px;
-  color: var(--ink-4);
-  transform: rotate(-2deg);
-  transform-origin: 0 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: rgba(34, 211, 238, 0.06);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
 }
 
 .secTitle {
-  margin-top: 14px;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(31px, 4.4vw, 56px);
-  line-height: 1.04;
-  letter-spacing: -0.015em;
+  margin-top: 18px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(30px, 4.2vw, 52px);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  color: var(--fg);
 }
 
 .secLead {
-  margin-top: 18px;
-  font-size: clamp(15px, 1.4vw, 18.5px);
-  font-weight: 300;
-  line-height: 1.62;
-  color: var(--ink-2);
+  margin-top: 16px;
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.65;
+  color: var(--fg-2);
 }
 
 @media (prefers-reduced-motion: reduce) {

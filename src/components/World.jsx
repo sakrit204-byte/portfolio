@@ -1,107 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { LINKS, NODES } from '../data/cv';
+import { BOUNDS, DISCOVER, HOME_R, LEFT_HOME, NEAR, UNIT, createScene } from '../three/scene';
 import Gallery from './Gallery';
 import s from './world.module.css';
 
-/* ------------------------------------------------------------------ */
-/* World constants (world-space px)                                     */
-/* ------------------------------------------------------------------ */
-
-const BOUNDS = { minX: -1060, maxX: 1060, minY: -480, maxY: 620 };
-const START_CAM_Y = 55;
-// Offset up-and-right of base camp so the player never sits on its label.
-const START_PLAYER_X = 110;
-const START_PLAYER_Y = 40;
-const GRID = 46;
-const NEAR = 155; // distance at which a node becomes "active" (inspectable)
-const DISCOVER = 190; // distance at which a node is marked discovered
-const HOME_R = 130; // walk back inside this radius to trigger the gallery
-const TILT_X = 12; // resting pitch of the map plane, degrees
-const TRAIL_MAX = 34;
-const MOVE_KEYS = new Set([
-  'w', 'a', 's', 'd',
-  'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
-]);
-
-const COFFEE_RINGS = [
-  { x: -820, y: 380, r: 74 },
-  { x: 830, y: -370, r: 52 },
-  { x: 300, y: 520, r: 96 },
-];
-
-const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));
-
-/** Canvas can't read CSS custom properties — mirror the per-kind accents here. */
-const KIND_RGB = {
-  home: '221,132,18',
-  studio: '180,83,10',
-  gov: '63,107,83',
-  product: '124,63,94',
-  client: '45,90,120',
-  beacon: '221,132,18',
-};
-
-/** Deterministic pseudo-random in [0,1) — keeps hand-drawn wobble stable across frames. */
-const rand = (i) => {
-  const x = Math.sin(i * 127.1 + 11.7) * 43758.5453;
-  return x - Math.floor(x);
-};
-
+const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-/** Quadratic bezier point + the control point used to draw each ink route. */
-const routeControl = (a, b, i) => {
-  const mx = (a.x + b.x) / 2;
-  const my = (a.y + b.y) / 2;
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const bow = (rand(i) - 0.5) * 0.34 * len;
-  return { x: mx + (-dy / len) * bow, y: my + (dx / len) * bow };
-};
-
-const qPoint = (a, c, b, t) => {
-  const u = 1 - t;
-  return {
-    x: u * u * a.x + 2 * u * t * c.x + t * t * b.x,
-    y: u * u * a.y + 2 * u * t * c.y + t * t * b.y,
-  };
-};
-
-/* ------------------------------------------------------------------ */
+const START = new THREE.Vector3(0, 0, 5.4);
 
 export default function World({ onOpen, paused = false }) {
   const stageRef = useRef(null);
-  const tiltRef = useRef(null);
   const canvasRef = useRef(null);
-  const layerRef = useRef(null);
-  const playerDotRef = useRef(null);
+  const labelRefs = useRef({});
   const arrowRefs = useRef({});
+  const playerDotRef = useRef(null);
 
   const [activeId, setActiveId] = useState(null);
   const [discovered, setDiscovered] = useState(() => new Set());
   const [touched, setTouched] = useState(false);
   const [coarse, setCoarse] = useState(false);
   const [gallery, setGallery] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  // Mutable simulation state — deliberately outside React so the rAF loop
-  // never triggers a re-render.
   const sim = useRef({
-    cam: { x: 0, y: START_CAM_Y },
-    player: { x: START_PLAYER_X, y: START_PLAYER_Y },
-    vel: { x: 0, y: 0 },
     keys: new Set(),
-    trail: [],
-    // Start on a composed view of the whole map; the camera only latches onto
-    // the player once the visitor actually moves.
-    follow: false,
-    scale: 1,
-    w: 0,
-    h: 0,
-    vw: 0,
-    vh: 0,
-    offX: 0,
-    offY: 0,
+    vel: new THREE.Vector3(),
+    yaw: 0,
+    yawTarget: 0,
     activeId: null,
     discovered: new Set(),
     drag: null,
@@ -111,20 +39,21 @@ export default function World({ onOpen, paused = false }) {
     paused: false,
     leftHome: false,
     galleryDone: false,
+    hoverId: null,
   });
 
-  // Freeze the simulation's input while any overlay owns the screen.
   useEffect(() => {
     sim.current.paused = paused || gallery;
     if (paused || gallery) sim.current.keys.clear();
   }, [paused, gallery]);
 
   const openNode = useCallback(
-    (node) => {
+    (id) => {
+      const node = NODES.find((n) => n.id === id);
       if (!node) return;
       const S = sim.current;
-      if (!S.discovered.has(node.id)) {
-        S.discovered.add(node.id);
+      if (!S.discovered.has(id)) {
+        S.discovered.add(id);
         setDiscovered(new Set(S.discovered));
       }
       onOpen(node);
@@ -132,195 +61,194 @@ export default function World({ onOpen, paused = false }) {
     [onOpen],
   );
 
-  /* ---------------- main loop ---------------- */
   useEffect(() => {
     const stage = stageRef.current;
-    const tilt = tiltRef.current;
     const canvas = canvasRef.current;
-    if (!stage || !tilt || !canvas) return;
-    const ctx = canvas.getContext('2d');
-    const S = sim.current;
+    if (!stage || !canvas) return;
 
+    const S = sim.current;
     S.calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isCoarse = window.matchMedia('(pointer: coarse)').matches;
     setCoarse(isCoarse);
 
-    /* ----- sizing ----- */
+    let world;
+    try {
+      world = createScene(canvas, { nodes: NODES, links: LINKS, calm: S.calm });
+    } catch (err) {
+      console.error('WebGL unavailable:', err);
+      setFailed(true);
+      return;
+    }
+    setReady(true);
+
+    const { renderer, scene, camera, nodeObjs, byId, linkObjs, player, raycaster } = world;
+    const homeObj = byId.home;
+
+    player.position.copy(START);
+    const camPos = new THREE.Vector3();
+    const camLook = new THREE.Vector3();
+
+    /* ---------- sizing ---------- */
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      // The plane overhangs the stage so pitching it never exposes the corners.
-      // Canvas covers the plane; zoom is fitted to the *visible* stage, or the
-      // overhang would scale the world up and push edge markers out of frame.
-      const pw = tilt.offsetWidth;
-      const ph = tilt.offsetHeight;
-      const vis = stage.getBoundingClientRect();
-
-      S.w = pw;
-      S.h = ph;
-      S.offX = (pw - vis.width) / 2;
-      S.offY = (ph - vis.height) / 2;
-      S.vw = vis.width;
-      S.vh = vis.height;
-
-      // Fit to the shorter axis — the map viewport is wide but shallow, so
-      // scaling on width alone pushes every node off the top and bottom.
-      S.scale = clamp(Math.min(vis.width / 1500, vis.height / 620), 0.46, 0.95);
-
-      canvas.width = Math.round(pw * dpr);
-      canvas.height = Math.round(ph * dpr);
-      canvas.style.width = `${pw}px`;
-      canvas.style.height = `${ph}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const r = stage.getBoundingClientRect();
+      world.resize(r.width, r.height);
     };
     resize();
     const ro = new ResizeObserver(resize);
-    ro.observe(tilt);
     ro.observe(stage);
 
-    /* ----- pause when off-screen ----- */
     const io = new IntersectionObserver((es) => (S.visible = es[0].isIntersecting), { threshold: 0.02 });
     io.observe(stage);
 
-    /* ----- keyboard ----- */
+    /* ---------- input ---------- */
     const onKeyDown = (e) => {
-      const k = e.key.toLowerCase();
       if (!S.visible || S.paused) return;
-      const typing = e.target instanceof HTMLElement && /input|textarea/i.test(e.target.tagName);
-      if (typing) return;
-
+      if (e.target instanceof HTMLElement && /input|textarea/i.test(e.target.tagName)) return;
+      const k = e.key.toLowerCase();
       if (MOVE_KEYS.has(k)) {
         S.keys.add(k);
-        S.follow = true;
         setTouched(true);
-        e.preventDefault(); // arrows would otherwise scroll the page away
+        e.preventDefault();
       } else if (k === 'e' && S.activeId) {
-        openNode(byId[S.activeId]);
+        openNode(S.activeId);
       }
     };
     const onKeyUp = (e) => S.keys.delete(e.key.toLowerCase());
     const onBlur = () => S.keys.clear();
-
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
 
-    /* ----- drag to pan ----- */
+    /* ---------- pointer: drag orbits the camera, click picks a node ---------- */
+    const pointer = new THREE.Vector2();
+    let hasPointer = false;
+
     const onPointerDown = (e) => {
-      if (e.target.closest('[data-node]')) {
-        // Node buttons handle themselves, but the drag flag must be cleared or a
-        // stale `true` from an earlier pan would swallow this click.
-        S.dragMoved = false;
-        return;
-      }
-      S.drag = { x: e.clientX, y: e.clientY };
+      if (e.target.closest('[data-label]')) return;
+      S.drag = { x: e.clientX };
       S.dragMoved = false;
-      S.follow = false;
       stage.setPointerCapture?.(e.pointerId);
       stage.dataset.grabbing = '';
     };
-    // Gentle parallax: the plane leans toward the pointer.
-    const onParallax = (e) => {
-      if (S.calm || isCoarse || S.drag) return;
-      const r = stage.getBoundingClientRect();
-      const nx = (e.clientX - r.left) / r.width - 0.5;
-      const ny = (e.clientY - r.top) / r.height - 0.5;
-      tilt.style.setProperty('--rx', `${TILT_X - ny * 5}deg`);
-      tilt.style.setProperty('--ry', `${nx * 7}deg`);
-    };
-    const onLeaveStage = () => {
-      tilt.style.setProperty('--rx', `${TILT_X}deg`);
-      tilt.style.setProperty('--ry', '0deg');
-    };
 
     const onPointerMove = (e) => {
-      onParallax(e);
+      const r = stage.getBoundingClientRect();
+      pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      hasPointer = true;
+
       if (!S.drag) return;
       const dx = e.clientX - S.drag.x;
-      const dy = e.clientY - S.drag.y;
-      if (Math.hypot(dx, dy) > 4) {
+      if (Math.abs(dx) > 3) {
         S.dragMoved = true;
         setTouched(true);
       }
-      S.cam.x -= dx / S.scale;
-      S.cam.y -= dy / S.scale;
-      S.drag = { x: e.clientX, y: e.clientY };
+      S.yawTarget -= dx * 0.005;
+      S.drag = { x: e.clientX };
     };
+
     const endDrag = (e) => {
       S.drag = null;
       stage.releasePointerCapture?.(e?.pointerId);
       delete stage.dataset.grabbing;
     };
 
+    const onClick = () => {
+      if (S.dragMoved) return;
+      if (S.hoverId) openNode(S.hoverId);
+    };
+
     stage.addEventListener('pointerdown', onPointerDown);
     stage.addEventListener('pointermove', onPointerMove);
     stage.addEventListener('pointerup', endDrag);
     stage.addEventListener('pointercancel', endDrag);
-    stage.addEventListener('pointerleave', onLeaveStage);
+    stage.addEventListener('pointerleave', () => (hasPointer = false));
+    stage.addEventListener('click', onClick);
 
-    /* ----- render ----- */
+    /* ---------- loop ---------- */
     let raf = 0;
     let last = performance.now();
     let clock = 0;
+    const fwd = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    const projected = new THREE.Vector3();
 
     const frame = (now) => {
       raf = requestAnimationFrame(frame);
-      const dt = clamp((now - last) / 16.667, 0, 3);
+      const dt = clamp((now - last) / 1000, 0, 0.05);
       last = now;
       if (!S.visible) return;
       clock += dt;
 
-      step(dt);
-      draw(ctx, S, clock);
-      paintDom(S);
-    };
-
-    const step = (dt) => {
-      // input -> acceleration
-      let ax = 0;
-      let ay = 0;
+      /* movement, relative to where the camera is looking */
+      let ix = 0;
+      let iz = 0;
       if (!S.paused) {
-        if (S.keys.has('a') || S.keys.has('arrowleft')) ax -= 1;
-        if (S.keys.has('d') || S.keys.has('arrowright')) ax += 1;
-        if (S.keys.has('w') || S.keys.has('arrowup')) ay -= 1;
-        if (S.keys.has('s') || S.keys.has('arrowdown')) ay += 1;
-      }
-      const m = Math.hypot(ax, ay) || 1;
-
-      S.vel.x = (S.vel.x + (ax / m) * 1.5 * dt) * 0.87;
-      S.vel.y = (S.vel.y + (ay / m) * 1.5 * dt) * 0.87;
-
-      S.player.x = clamp(S.player.x + S.vel.x * dt * 4.2, BOUNDS.minX, BOUNDS.maxX);
-      S.player.y = clamp(S.player.y + S.vel.y * dt * 4.2, BOUNDS.minY, BOUNDS.maxY);
-
-      // trail
-      if (!S.calm && Math.hypot(S.vel.x, S.vel.y) > 0.12) {
-        S.trail.push({ x: S.player.x, y: S.player.y });
-        if (S.trail.length > TRAIL_MAX) S.trail.shift();
-      } else if (S.trail.length) {
-        S.trail.shift();
+        if (S.keys.has('a') || S.keys.has('arrowleft')) ix -= 1;
+        if (S.keys.has('d') || S.keys.has('arrowright')) ix += 1;
+        if (S.keys.has('w') || S.keys.has('arrowup')) iz -= 1;
+        if (S.keys.has('s') || S.keys.has('arrowdown')) iz += 1;
       }
 
-      // camera
-      if (S.follow) {
-        const k = S.calm ? 1 : 1 - Math.pow(1 - 0.09, dt);
-        S.cam.x += (S.player.x - S.cam.x) * k;
-        S.cam.y += (S.player.y - S.cam.y) * k;
-      }
-      S.cam.x = clamp(S.cam.x, BOUNDS.minX - 200, BOUNDS.maxX + 200);
-      S.cam.y = clamp(S.cam.y, BOUNDS.minY - 200, BOUNDS.maxY + 200);
+      S.yaw += (S.yawTarget - S.yaw) * (1 - Math.pow(0.001, dt));
 
-      // proximity: nearest node to the player, and discovery
+      fwd.set(Math.sin(S.yaw), 0, Math.cos(S.yaw));
+      right.set(Math.cos(S.yaw), 0, -Math.sin(S.yaw));
+
+      const accel = new THREE.Vector3()
+        .addScaledVector(right, ix)
+        .addScaledVector(fwd, iz);
+      if (accel.lengthSq() > 0) accel.normalize().multiplyScalar(74 * dt);
+
+      S.vel.add(accel).multiplyScalar(Math.pow(0.0016, dt));
+      player.position.addScaledVector(S.vel, dt);
+      player.position.x = clamp(player.position.x, -BOUNDS.x, BOUNDS.x);
+      player.position.z = clamp(player.position.z, BOUNDS.zMin, BOUNDS.zMax);
+
+      // bob + spin
+      if (!S.calm) {
+        player.children[0].position.y = 0.85 + Math.sin(clock * 2.4) * 0.08;
+        player.children[0].rotation.y += dt * 0.9;
+      }
+
+      /* trail */
+      if (!S.calm) {
+        if (!world.trailPts.length || world.trailPts[0].distanceTo(player.position) > 0.35) {
+          world.trailPts.unshift(player.position.clone().setY(0.5));
+          if (world.trailPts.length > 60) world.trailPts.pop();
+        }
+        for (let i = 0; i < 60; i++) {
+          const p = world.trailPts[Math.min(i, world.trailPts.length - 1)] ?? player.position;
+          world.trailPos[i * 3] = p.x;
+          world.trailPos[i * 3 + 1] = p.y;
+          world.trailPos[i * 3 + 2] = p.z;
+        }
+        world.trail.geometry.attributes.position.needsUpdate = true;
+      }
+
+      /* camera: chase from behind-and-above, orbiting with yaw.
+         +z offset so the camera looks down -z, the direction W travels. */
+      camPos.set(
+        player.position.x + Math.sin(S.yaw) * 19,
+        17,
+        player.position.z + Math.cos(S.yaw) * 19,
+      );
+      camera.position.lerp(camPos, S.calm ? 1 : 1 - Math.pow(0.0009, dt));
+      camLook.copy(player.position).setY(1.6);
+      camera.lookAt(camLook);
+
+      /* proximity + discovery */
       let near = null;
       let bestD = Infinity;
       let changed = false;
-      for (const n of NODES) {
-        const d = Math.hypot(n.x - S.player.x, n.y - S.player.y);
+      for (const o of nodeObjs) {
+        const d = o.base.distanceTo(player.position);
         if (d < bestD) {
           bestD = d;
-          near = n;
+          near = o;
         }
-        if (d < DISCOVER && !S.discovered.has(n.id)) {
-          S.discovered.add(n.id);
+        if (d < DISCOVER && !S.discovered.has(o.id)) {
+          S.discovered.add(o.id);
           changed = true;
         }
       }
@@ -332,201 +260,120 @@ export default function World({ onOpen, paused = false }) {
         setActiveId(nextActive);
       }
 
-      // Returning to base camp opens the screenshot gallery — but only once the
-      // player has actually left it (they spawn within the radius).
-      const home = byId.home;
-      const dHome = Math.hypot(home.x - S.player.x, home.y - S.player.y);
-      if (dHome > HOME_R + 70) S.leftHome = true;
+      /* base camp -> gallery, once the player has actually left it */
+      const dHome = homeObj.base.distanceTo(player.position);
+      if (dHome > LEFT_HOME) S.leftHome = true;
       if (S.leftHome && dHome < HOME_R && !S.galleryDone && !S.paused) {
         S.galleryDone = true;
         setGallery(true);
       }
+
+      /* hover picking */
+      if (hasPointer && !S.drag && !isCoarse) {
+        raycaster.setFromCamera(pointer, camera);
+        const hit = raycaster.intersectObjects(world.coreMeshes, false)[0];
+        const id = hit?.object.userData.nodeId ?? null;
+        if (id !== S.hoverId) {
+          S.hoverId = id;
+          if (id) stage.dataset.pick = '';
+          else delete stage.dataset.pick;
+        }
+      }
+
+      /* node animation */
+      for (const o of nodeObjs) {
+        const found = S.discovered.has(o.id);
+        const hot = S.activeId === o.id || S.hoverId === o.id;
+        const t = clock + o.base.x;
+
+        if (!S.calm) {
+          o.shell.rotation.y += dt * (hot ? 0.9 : 0.32);
+          o.shell.rotation.x += dt * 0.12;
+          o.core.rotation.y -= dt * 0.5;
+          o.group.position.y = Math.sin(t * 0.8) * 0.14;
+          o.ring.scale.setScalar(1 + Math.sin(t * 1.6) * 0.04);
+        }
+
+        // Undiscovered nodes must still read clearly against the dark floor —
+        // they are the thing the visitor is meant to walk toward.
+        const targetEmissive = found ? (hot ? 2.6 : 1.35) : 0.7;
+        o.core.material.emissiveIntensity += (targetEmissive - o.core.material.emissiveIntensity) * 0.12;
+
+        const targetGlow = found ? (hot ? 1 : 0.62) : 0.34;
+        o.glow.material.opacity += (targetGlow - o.glow.material.opacity) * 0.12;
+
+        const targetShell = hot ? 0.8 : found ? 0.48 : 0.3;
+        o.shell.material.opacity += (targetShell - o.shell.material.opacity) * 0.12;
+
+        o.ring.material.opacity = found ? 0.55 : 0.3;
+        o.beam.material.opacity = found ? 0.34 : 0.2;
+      }
+
+      /* link packets flow between discovered nodes */
+      for (const l of linkObjs) {
+        const lit = S.discovered.has(l.a) && S.discovered.has(l.b);
+        l.line.material.opacity += ((lit ? 0.62 : 0.16) - l.line.material.opacity) * 0.1;
+        l.line.material.color.lerp(new THREE.Color(lit ? 0x22d3ee : 0x334155), 0.06);
+
+        if (lit && !S.calm) {
+          const t = (clock * 0.22 + l.seed) % 1;
+          l.curve.getPoint(t, l.packet.position);
+          l.packet.material.opacity = Math.sin(t * Math.PI) * 0.9;
+        } else {
+          l.packet.material.opacity = 0;
+        }
+      }
+
+      world.grid.material.uniforms.uTime.value = clock;
+      world.particles.material.uniforms.uTime.value = clock;
+      world.pGlow.material.opacity = 0.6 + Math.sin(clock * 3) * 0.12;
+
+      renderer.render(scene, camera);
+      paintLabels();
     };
 
-    /* world -> screen helpers live inside draw via ctx transform */
-    const draw = (c, St, clock) => {
-      const { w, h, cam, scale } = St;
-      c.save();
-      c.clearRect(0, 0, w, h);
-      c.translate(w / 2, h / 2);
-      c.scale(scale, scale);
-      c.translate(-cam.x, -cam.y);
+    /* Project each node into screen space and place its HTML label there. */
+    const paintLabels = () => {
+      const w = renderer.domElement.clientWidth;
+      const h = renderer.domElement.clientHeight;
+      const pad = 42;
 
-      const halfW = w / 2 / scale;
-      const halfH = h / 2 / scale;
-      const l = cam.x - halfW;
-      const r = cam.x + halfW;
-      const t = cam.y - halfH;
-      const b = cam.y + halfH;
+      for (const o of nodeObjs) {
+        const el = labelRefs.current[o.id];
+        const arrow = arrowRefs.current[o.id];
+        projected.copy(o.base).setY(4.1).project(camera);
 
-      /* dotted graph paper */
-      c.fillStyle = 'rgba(23,19,14,0.13)';
-      const x0 = Math.floor(l / GRID) * GRID;
-      const y0 = Math.floor(t / GRID) * GRID;
-      for (let x = x0; x < r + GRID; x += GRID) {
-        for (let y = y0; y < b + GRID; y += GRID) {
-          const major = x % (GRID * 5) === 0 && y % (GRID * 5) === 0;
-          c.beginPath();
-          c.arc(x, y, major ? 1.5 : 0.8, 0, Math.PI * 2);
-          c.fill();
-        }
-      }
+        const behind = projected.z > 1;
+        const sx = (projected.x * 0.5 + 0.5) * w;
+        const sy = (-projected.y * 0.5 + 0.5) * h;
+        const onScreen = !behind && sx > pad && sx < w - pad && sy > pad && sy < h - pad;
 
-      /* coffee rings — scenery */
-      c.lineWidth = 2.5;
-      for (const ring of COFFEE_RINGS) {
-        c.strokeStyle = 'rgba(163,61,18,0.09)';
-        c.beginPath();
-        c.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
-        c.stroke();
-        c.strokeStyle = 'rgba(163,61,18,0.05)';
-        c.beginPath();
-        c.arc(ring.x + 3, ring.y - 2, ring.r * 0.86, 0, Math.PI * 2);
-        c.stroke();
-      }
-
-      /* map edge */
-      c.setLineDash([9, 11]);
-      c.lineWidth = 1.5;
-      c.strokeStyle = 'rgba(23,19,14,0.16)';
-      c.strokeRect(BOUNDS.minX, BOUNDS.minY, BOUNDS.maxX - BOUNDS.minX, BOUNDS.maxY - BOUNDS.minY);
-      c.setLineDash([]);
-
-      /* ink routes */
-      LINKS.forEach(([aId, bId], i) => {
-        const a = byId[aId];
-        const bN = byId[bId];
-        if (!a || !bN) return;
-        const ctrl = routeControl(a, bN, i);
-        const lit = St.discovered.has(aId) && St.discovered.has(bId);
-
-        c.lineCap = 'round';
-        // Two offset passes fake a hand-drawn double stroke.
-        for (let pass = 0; pass < 2; pass++) {
-          const j = pass === 0 ? 0 : 1.6;
-          c.strokeStyle = lit ? `rgba(163,61,18,${pass ? 0.1 : 0.3})` : `rgba(23,19,14,${pass ? 0.05 : 0.14})`;
-          c.lineWidth = pass ? 1 : 1.6;
-          c.beginPath();
-          c.moveTo(a.x + j, a.y + j);
-          c.quadraticCurveTo(ctrl.x + j, ctrl.y + j, bN.x + j, bN.y + j);
-          c.stroke();
+        if (el) {
+          el.style.opacity = onScreen ? '1' : '0';
+          el.style.pointerEvents = onScreen ? 'auto' : 'none';
+          // sit the label above the node rather than on top of it
+          if (onScreen) el.style.transform = `translate3d(${sx}px, ${sy}px, 0) translate(-50%, -100%)`;
         }
 
-        /* signal packets travel the routes you've unlocked */
-        if (lit && !St.calm) {
-          for (let k = 0; k < 2; k++) {
-            const tt = ((clock * 0.0035 + rand(i * 7 + k)) % 1 + 1) % 1;
-            const p = qPoint(a, ctrl, bN, tt);
-            const fade = Math.sin(tt * Math.PI);
-            c.fillStyle = `rgba(224,137,28,${0.75 * fade})`;
-            c.beginPath();
-            c.arc(p.x, p.y, 2.6, 0, Math.PI * 2);
-            c.fill();
+        if (arrow) {
+          arrow.style.opacity = onScreen ? '0' : '1';
+          if (!onScreen) {
+            // flip the vector when the node is behind the camera
+            const dx = (behind ? -projected.x : projected.x) * (w / 2);
+            const dy = (behind ? projected.y : -projected.y) * (h / 2);
+            const ang = Math.atan2(dy, dx);
+            const ex = clamp(w / 2 + dx, pad, w - pad);
+            const ey = clamp(h / 2 + dy, pad, h - pad);
+            arrow.style.transform = `translate3d(${ex}px, ${ey}px, 0) rotate(${ang}rad)`;
           }
         }
-      });
-
-      /* node halos + cast shadows (the crisp node art is DOM, layered above) */
-      for (const n of NODES) {
-        const on = St.discovered.has(n.id);
-        const rgb = KIND_RGB[n.kind] ?? KIND_RGB.home;
-        const g = c.createRadialGradient(n.x, n.y, 0, n.x, n.y, 78);
-        g.addColorStop(0, on ? `rgba(${rgb},0.2)` : 'rgba(26,20,16,0.06)');
-        g.addColorStop(1, 'rgba(26,20,16,0)');
-        c.fillStyle = g;
-        c.beginPath();
-        c.arc(n.x, n.y, 78, 0, Math.PI * 2);
-        c.fill();
-
-        // the marker floats above the plane, so ground it with a soft shadow
-        c.fillStyle = 'rgba(26,20,16,0.13)';
-        c.beginPath();
-        c.ellipse(n.x + 5, n.y + 9, 13, 6, 0, 0, Math.PI * 2);
-        c.fill();
       }
 
-      /* proximity ring on the active node */
-      if (St.activeId) {
-        const n = byId[St.activeId];
-        c.save();
-        c.translate(n.x, n.y);
-        if (!St.calm) c.rotate(clock * 0.008);
-        c.setLineDash([5, 7]);
-        c.lineWidth = 1.4;
-        c.strokeStyle = `rgba(${KIND_RGB[n.kind] ?? KIND_RGB.home},0.7)`;
-        c.beginPath();
-        c.arc(0, 0, 48, 0, Math.PI * 2);
-        c.stroke();
-        c.restore();
-        c.setLineDash([]);
-      }
-
-      /* player trail */
-      for (let i = 0; i < St.trail.length; i++) {
-        const p = St.trail[i];
-        const f = i / St.trail.length;
-        c.fillStyle = `rgba(221,132,18,${f * 0.32})`;
-        c.beginPath();
-        c.arc(p.x, p.y, f * 5.5, 0, Math.PI * 2);
-        c.fill();
-      }
-
-      /* player */
-      const { x: px, y: py } = St.player;
-      const glow = c.createRadialGradient(px, py, 0, px, py, 40);
-      glow.addColorStop(0, 'rgba(221,132,18,0.36)');
-      glow.addColorStop(1, 'rgba(221,132,18,0)');
-      c.fillStyle = glow;
-      c.beginPath();
-      c.arc(px, py, 40, 0, Math.PI * 2);
-      c.fill();
-
-      const bob = St.calm ? 0 : Math.sin(clock * 0.05) * 0.9;
-      c.fillStyle = '#dd8412';
-      c.strokeStyle = '#1a1410';
-      c.lineWidth = 1.8;
-      c.beginPath();
-      c.arc(px, py + bob, 9, 0, Math.PI * 2);
-      c.fill();
-      c.stroke();
-      c.fillStyle = 'rgba(253,250,243,0.85)';
-      c.beginPath();
-      c.arc(px - 2.8, py + bob - 3, 2.6, 0, Math.PI * 2);
-      c.fill();
-
-      c.restore();
-    };
-
-    /* Position the DOM node layer + off-screen arrows + minimap player. */
-    const paintDom = (St) => {
-      const { w, h, cam, scale } = St;
-      if (layerRef.current) {
-        layerRef.current.style.transform = `translate3d(${w / 2}px, ${h / 2}px, 0) scale(${scale}) translate3d(${-cam.x}px, ${-cam.y}px, 0)`;
-      }
       if (playerDotRef.current) {
-        const mx = ((St.player.x - BOUNDS.minX) / (BOUNDS.maxX - BOUNDS.minX)) * 100;
-        const my = ((St.player.y - BOUNDS.minY) / (BOUNDS.maxY - BOUNDS.minY)) * 100;
+        const mx = ((player.position.x + BOUNDS.x) / (BOUNDS.x * 2)) * 100;
+        const my = ((player.position.z - BOUNDS.zMin) / (BOUNDS.zMax - BOUNDS.zMin)) * 100;
         playerDotRef.current.style.left = `${mx}%`;
         playerDotRef.current.style.top = `${my}%`;
-      }
-
-      // Arrows live on the plane, but must hug the edges of the *visible* stage.
-      const pad = 46;
-      const left = St.offX + pad;
-      const right = St.offX + St.vw - pad;
-      const top = St.offY + pad;
-      const bottom = St.offY + St.vh - pad;
-
-      for (const n of NODES) {
-        const el = arrowRefs.current[n.id];
-        if (!el) continue;
-        const sx = (n.x - cam.x) * scale + w / 2;
-        const sy = (n.y - cam.y) * scale + h / 2;
-        const off = sx < left || sx > right || sy < top || sy > bottom;
-        el.style.opacity = off ? '1' : '0';
-        if (!off) continue;
-        const ang = Math.atan2(sy - h / 2, sx - w / 2);
-        el.style.transform = `translate3d(${clamp(sx, left, right)}px, ${clamp(sy, top, bottom)}px, 0) rotate(${ang}rad)`;
       }
     };
 
@@ -543,17 +390,15 @@ export default function World({ onOpen, paused = false }) {
       stage.removeEventListener('pointermove', onPointerMove);
       stage.removeEventListener('pointerup', endDrag);
       stage.removeEventListener('pointercancel', endDrag);
-      stage.removeEventListener('pointerleave', onLeaveStage);
+      stage.removeEventListener('click', onClick);
+      world.dispose();
     };
   }, [openNode]);
 
   const recentre = () => {
     const S = sim.current;
-    S.follow = false;
-    S.player = { x: START_PLAYER_X, y: START_PLAYER_Y };
-    S.cam = { x: 0, y: START_CAM_Y };
-    S.vel = { x: 0, y: 0 };
-    S.trail = [];
+    S.vel.set(0, 0, 0);
+    S.yawTarget = 0;
   };
 
   const found = discovered.size;
@@ -561,74 +406,65 @@ export default function World({ onOpen, paused = false }) {
 
   return (
     <div className={s.stage} ref={stageRef}>
-      {/* The map plane: pitched back in 3D, leaning toward the pointer. */}
-      <div className={s.tilt} ref={tiltRef}>
-        <canvas ref={canvasRef} className={s.canvas} aria-hidden="true" />
+      <canvas ref={canvasRef} className={s.canvas} />
 
-        {/* Node layer — real buttons, so the map is keyboard + screen-reader usable. */}
-        <div className={s.layer} ref={layerRef}>
-          {NODES.map((n) => (
-            <button
-              key={n.id}
-              data-node
-              data-kind={n.kind}
-              data-active={activeId === n.id || undefined}
-              data-found={discovered.has(n.id) || undefined}
-              className={s.node}
-              style={{ left: n.x, top: n.y }}
-              onClick={() => {
-                if (sim.current.dragMoved) return; // a pan shouldn't open a panel
-                openNode(n);
-              }}
-              aria-label={`${n.label} — ${n.kicker}. Open case study.`}
-            >
-              <span className={s.ring} aria-hidden="true" />
-              <span className={s.core} aria-hidden="true" />
-              <span className={s.plate}>
-                <span className={s.kicker}>{n.kicker}</span>
-                <span className={s.label}>{n.label}</span>
-                {activeId === n.id && !coarse && (
-                  <span className={s.hint}>
-                    <kbd>E</kbd> inspect
-                  </span>
-                )}
-              </span>
-              <span className={s.note} aria-hidden="true">
-                {n.note}
-              </span>
-            </button>
-          ))}
+      {failed && (
+        <div className={s.fallback}>
+          <p>Your browser blocked WebGL, so the 3D map can’t render.</p>
+          <a href="#work">Browse the work as cards →</a>
         </div>
+      )}
 
-        {/* Off-screen node pointers */}
-        <div className={s.arrows} aria-hidden="true">
-          {NODES.map((n) => (
-            <span
-              key={n.id}
-              className={s.arrow}
-              ref={(el) => {
-                arrowRefs.current[n.id] = el;
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13">
-                <path
-                  d="M4 12h14M13 6l6 6-6 6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-          ))}
-        </div>
+      {/* Labels are real buttons projected onto the 3D nodes: the map stays
+          keyboard- and screen-reader navigable. */}
+      <div className={s.labels}>
+        {NODES.map((n) => (
+          <button
+            key={n.id}
+            data-label
+            data-kind={n.kind}
+            data-active={activeId === n.id || undefined}
+            data-found={discovered.has(n.id) || undefined}
+            className={s.label}
+            ref={(el) => {
+              labelRefs.current[n.id] = el;
+            }}
+            onClick={() => !sim.current.dragMoved && openNode(n.id)}
+            aria-label={`${n.label} — ${n.kicker}. Open case study.`}
+          >
+            <span className={s.labelKicker}>{n.kicker}</span>
+            <span className={s.labelName}>{n.label}</span>
+            {activeId === n.id && !coarse && (
+              <span className={s.hint}>
+                <kbd>E</kbd> inspect
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className={s.arrows} aria-hidden="true">
+        {NODES.map((n) => (
+          <span
+            key={n.id}
+            className={s.arrow}
+            data-kind={n.kind}
+            ref={(el) => {
+              arrowRefs.current[n.id] = el;
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="12" height="12">
+              <path d="M4 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+          </span>
+        ))}
       </div>
 
       {/* HUD */}
       <div className={s.hudTop}>
         <div className={s.counter} role="status" aria-live="polite">
           <span className="srOnly">
-            {found} of {total} locations discovered
+            {found} of {total} nodes discovered
           </span>
           <span className={s.counterNum} aria-hidden="true">
             {String(found).padStart(2, '0')}
@@ -636,53 +472,55 @@ export default function World({ onOpen, paused = false }) {
             {String(total).padStart(2, '0')}
           </span>
           <span className={s.counterLabel} aria-hidden="true">
-            discovered
+            nodes mapped
           </span>
           <span className={s.meter} aria-hidden="true">
             <i style={{ transform: `scaleX(${found / total})` }} />
           </span>
         </div>
-        {found === total && <span className={s.complete}>map complete — nice.</span>}
+        {found === total && <span className={s.complete}>// graph complete</span>}
       </div>
 
       <div className={s.hudBottom}>
         <p className={s.controls} data-dim={touched || undefined}>
           {coarse ? (
             <>
-              <b>Drag</b> to explore · <b>Tap</b> a marker
+              <b>Drag</b> to orbit · <b>Tap</b> a node
             </>
           ) : (
             <>
               <kbd>W</kbd>
               <kbd>A</kbd>
               <kbd>S</kbd>
-              <kbd>D</kbd> move · <b>drag</b> to pan · <kbd>E</kbd> inspect
+              <kbd>D</kbd> move · <b>drag</b> to orbit · <kbd>E</kbd> inspect
             </>
           )}
         </p>
-        <button className={s.recentre} onClick={recentre} data-cursor="reset">
-          Recentre
+        <button className={s.btn} onClick={recentre}>
+          Reset view
         </button>
-        <button className={s.recentre} onClick={() => setGallery(true)} data-cursor="view">
+        <button className={s.btn} onClick={() => setGallery(true)}>
           Screenshots
         </button>
       </div>
 
-      {/* Minimap */}
       <div className={s.minimap} aria-hidden="true">
         {NODES.map((n) => (
           <span
             key={n.id}
             className={s.mmNode}
+            data-kind={n.kind}
             data-found={discovered.has(n.id) || undefined}
             style={{
-              left: `${((n.x - BOUNDS.minX) / (BOUNDS.maxX - BOUNDS.minX)) * 100}%`,
-              top: `${((n.y - BOUNDS.minY) / (BOUNDS.maxY - BOUNDS.minY)) * 100}%`,
+              left: `${((n.x / UNIT + BOUNDS.x) / (BOUNDS.x * 2)) * 100}%`,
+              top: `${((n.y / UNIT - BOUNDS.zMin) / (BOUNDS.zMax - BOUNDS.zMin)) * 100}%`,
             }}
           />
         ))}
         <span className={s.mmPlayer} ref={playerDotRef} />
       </div>
+
+      {!ready && !failed && <div className={s.boot}>initialising scene…</div>}
 
       <Gallery open={gallery} onClose={() => setGallery(false)} />
     </div>

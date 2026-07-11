@@ -1,7 +1,7 @@
 .section {
   position: relative;
   z-index: 1;
-  padding: clamp(74px, 11vh, 148px) 0;
+  padding: clamp(70px, 10vh, 140px) 0;
 }
 
 .wrap {
@@ -16,7 +16,7 @@
   font-size: 9.5px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--fg-4);
 }
 
 /* ---------------- stats band ---------------- */
@@ -26,13 +26,13 @@
   z-index: 1;
   border-top: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, rgba(253, 250, 243, 0.6), transparent);
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.035), transparent);
 }
 
 .statsInner {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 42px var(--gutter);
+  padding: 40px var(--gutter);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 24px;
@@ -49,49 +49,51 @@
 
 .stat strong {
   display: block;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(32px, 4.6vw, 58px);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(30px, 4.2vw, 52px);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, #fff, var(--cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .stat span {
   display: block;
-  margin-top: 9px;
+  margin-top: 10px;
   font-family: var(--mono);
   font-size: 9.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--fg-3);
 }
 
 /* ---------------- work ---------------- */
 
 .caseGrid {
-  margin-top: 58px;
+  margin-top: 52px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+  gap: 18px;
 }
 
 .caseCard {
-  --accent: var(--amber);
+  --accent: var(--cyan);
   position: relative;
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0;
   text-align: left;
-  padding: 30px 30px 26px;
+  padding: 28px 28px 24px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
-  background: var(--paper-card);
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
   overflow: hidden;
-  transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease), border-color 0.3s;
+  transition: transform 0.4s var(--ease), border-color 0.3s, box-shadow 0.4s;
 }
 
 .caseCard[data-kind='gov'] {
@@ -108,42 +110,37 @@
 }
 
 .caseCard::before {
-  /* accent spine down the leading edge */
   content: '';
   position: absolute;
   top: 0;
-  bottom: 0;
   left: 0;
-  width: 3px;
-  background: var(--accent);
-  opacity: 0.5;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.35;
   transition: opacity 0.35s;
 }
 
 .caseCard::after {
-  /* accent wash that blooms from the corner on hover */
   content: '';
   position: absolute;
-  top: -60%;
-  right: -30%;
-  width: 70%;
-  height: 160%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%);
+  top: -50%;
+  right: -25%;
+  width: 65%;
+  height: 150%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%);
   opacity: 0;
   transition: opacity 0.45s;
   pointer-events: none;
 }
 
 .caseCard:hover {
-  transform: translateY(-5px);
-  border-color: var(--accent);
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   box-shadow: var(--shadow-md);
 }
 
-.caseCard:hover::before {
-  opacity: 1;
-}
-
+.caseCard:hover::before,
 .caseCard:hover::after {
   opacity: 1;
 }
@@ -167,30 +164,31 @@
 .casePeriod {
   font-family: var(--mono);
   font-size: 9px;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
+  color: var(--fg-4);
   white-space: nowrap;
 }
 
 .caseTitle {
-  margin-top: 18px;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(25px, 2.5vw, 33px);
-  line-height: 1.08;
+  margin-top: 16px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(23px, 2.3vw, 30px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
 }
 
 .caseRole {
   margin-top: 7px;
-  font-size: 13px;
-  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
 }
 
 .caseDesc {
-  margin-top: 16px;
+  margin-top: 15px;
   font-size: 14.5px;
   line-height: 1.6;
-  color: var(--ink-2);
+  color: var(--fg-2);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   line-clamp: 3;
@@ -199,25 +197,25 @@
 }
 
 .caseChips {
-  margin-top: 20px;
+  margin-top: 18px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
 .caseChips span {
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: var(--paper-2);
+  padding: 5px 10px;
+  border-radius: 5px;
+  background: rgba(148, 176, 214, 0.06);
   border: 1px solid var(--line-soft);
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--ink-2);
+  color: var(--fg-3);
 }
 
 .caseOpen {
   margin-top: auto;
-  padding-top: 24px;
+  padding-top: 22px;
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -225,7 +223,7 @@
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink);
+  color: var(--fg);
 }
 
 .caseOpen i {
@@ -240,83 +238,82 @@
 /* ---------------- services ---------------- */
 
 .serviceGrid {
-  margin-top: 58px;
+  margin-top: 52px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  gap: 16px;
 }
 
 .service {
   height: 100%;
-  padding: 30px 26px 28px;
+  padding: 28px 24px 26px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line-soft);
-  background: linear-gradient(180deg, var(--paper-card), rgba(253, 250, 243, 0.4));
-  transition: transform 0.4s var(--ease), border-color 0.3s, box-shadow 0.4s;
+  background: var(--panel);
+  transition: transform 0.4s var(--ease), border-color 0.3s, background 0.3s;
 }
 
 .service:hover {
   transform: translateY(-4px);
   border-color: var(--line);
-  box-shadow: var(--shadow-md);
+  background: var(--panel-2);
 }
 
 .serviceIcon {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 13px;
-  background: var(--amber-wash);
-  border: 1px solid rgba(224, 137, 28, 0.32);
-  color: var(--rust);
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  color: var(--cyan);
 }
 
 .service h3 {
-  margin-top: 22px;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: 22px;
-  line-height: 1.18;
+  margin-top: 20px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
 }
 
 .service p {
-  margin-top: 12px;
-  font-size: 14.5px;
+  margin-top: 11px;
+  font-size: 14px;
   line-height: 1.6;
-  color: var(--ink-2);
+  color: var(--fg-2);
 }
 
 .serviceStack {
-  margin-top: 18px !important;
-  padding-top: 15px;
+  margin-top: 16px !important;
+  padding-top: 14px;
   border-top: 1px solid var(--line-soft);
   font-family: var(--mono);
-  font-size: 10.5px !important;
+  font-size: 10px !important;
   line-height: 1.6 !important;
-  letter-spacing: 0.04em;
-  color: var(--ink-4) !important;
+  color: var(--fg-4) !important;
 }
 
 /* ---------------- stack ---------------- */
 
 .stackBox {
-  margin-top: 52px;
+  margin-top: 46px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  background: var(--paper-card);
-  box-shadow: var(--shadow-sm);
+  background: var(--panel);
   overflow: hidden;
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 250px 1fr;
 }
 
 .stackTabs {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--line-soft);
-  background: var(--paper-2);
-  padding: 12px;
+  background: var(--bg-2);
+  padding: 10px;
   gap: 2px;
 }
 
@@ -324,10 +321,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 15px;
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--ink-2);
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--fg-3);
   text-align: left;
   transition: background 0.25s, color 0.25s;
 }
@@ -336,43 +333,46 @@
   font-family: var(--mono);
   font-style: normal;
   font-size: 10px;
-  color: var(--ink-4);
+  color: var(--fg-4);
 }
 
 .stackTab:hover {
-  background: rgba(23, 19, 14, 0.04);
+  background: rgba(148, 176, 214, 0.05);
+  color: var(--fg-2);
 }
 
 .stackTab[data-on] {
-  background: var(--ink);
-  color: var(--paper);
+  background: rgba(34, 211, 238, 0.1);
+  color: var(--cyan);
+  box-shadow: inset 2px 0 0 var(--cyan);
 }
 
 .stackTab[data-on] i {
-  color: var(--amber-soft);
+  color: var(--cyan);
 }
 
 .stackPanel {
-  padding: 36px;
+  padding: 32px;
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 10px;
+  gap: 9px;
 }
 
 .stackChip {
-  padding: 11px 19px;
-  border-radius: 999px;
+  padding: 10px 17px;
+  border-radius: 8px;
   border: 1px solid var(--line);
-  background: var(--paper);
+  background: var(--bg-2);
   font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--ink);
-  transition: background 0.25s, transform 0.25s var(--ease);
+  font-size: 12px;
+  color: var(--fg-2);
+  transition: border-color 0.25s, color 0.25s, transform 0.25s var(--ease);
 }
 
 .stackChip:hover {
-  background: var(--amber-wash);
+  border-color: var(--cyan);
+  color: var(--cyan);
   transform: translateY(-2px);
 }
 
@@ -381,31 +381,31 @@
 .aboutGrid {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
-  gap: clamp(36px, 6vw, 90px);
+  gap: clamp(36px, 6vw, 84px);
   align-items: start;
 }
 
 .aboutLead {
-  margin-top: 30px;
-  font-size: clamp(17px, 1.7vw, 22px);
+  margin-top: 28px;
+  font-size: clamp(16px, 1.6vw, 21px);
   font-weight: 300;
-  line-height: 1.56;
-  color: var(--ink);
+  line-height: 1.55;
+  color: var(--fg);
 }
 
 .aboutBody {
-  margin-top: 20px;
-  font-size: 15.5px;
+  margin-top: 18px;
+  font-size: 15px;
   line-height: 1.68;
-  color: var(--ink-2);
+  color: var(--fg-2);
 }
 
 .eduBlock {
-  margin-top: 54px;
+  margin-top: 50px;
 }
 
 .edu {
-  padding: 20px 0;
+  padding: 18px 0;
   border-top: 1px solid var(--line-soft);
 }
 
@@ -417,28 +417,28 @@
 }
 
 .eduHead strong {
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: 19px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.015em;
 }
 
 .eduPeriod {
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
+  color: var(--fg-4);
   white-space: nowrap;
 }
 
 .edu p {
   margin-top: 6px;
-  font-size: 14px;
-  color: var(--ink-2);
+  font-size: 13.5px;
+  color: var(--fg-2);
 }
 
 .eduPlace {
-  color: var(--ink-4) !important;
-  font-size: 13px !important;
+  color: var(--fg-4) !important;
+  font-size: 12.5px !important;
 }
 
 .aboutSide {
@@ -447,7 +447,8 @@
 }
 
 .portrait {
-  margin-bottom: 44px;
+  position: relative;
+  margin-bottom: 40px;
 }
 
 .portrait img {
@@ -456,56 +457,60 @@
   object-fit: cover;
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-md);
-  filter: sepia(0.14) contrast(1.02);
+  filter: grayscale(0.35) contrast(1.05);
+  transition: filter 0.5s;
+}
+
+.portrait:hover img {
+  filter: grayscale(0) contrast(1);
 }
 
 .portrait figcaption {
-  margin-top: 14px;
-  font-family: var(--hand);
-  font-size: 21px;
-  color: var(--ink-4);
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-4);
   text-align: right;
-  transform: rotate(-1.5deg);
 }
 
 .refs {
   list-style: none;
   display: grid;
-  gap: 2px;
 }
 
 .refs li {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 17px 0;
+  padding: 16px 0;
   border-top: 1px solid var(--line-soft);
 }
 
 .refs strong {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 500;
 }
 
 .refs span {
   font-size: 12.5px;
   line-height: 1.5;
-  color: var(--ink-3);
+  color: var(--fg-3);
 }
 
 .refLink {
   font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--rust);
+  font-size: 11px;
+  color: var(--cyan);
   text-decoration: none;
   word-break: break-all;
 }
 
 .refPhone {
   font-family: var(--mono);
-  font-size: 11.5px !important;
-  color: var(--ink-4) !important;
+  font-size: 11px !important;
+  color: var(--fg-4) !important;
 }
 
 /* ---------------- contact ---------------- */
@@ -513,23 +518,24 @@
 .contact {
   position: relative;
   z-index: 1;
-  margin: 0 max(12px, calc(var(--gutter) - 28px)) 0;
-  padding: clamp(70px, 12vh, 140px) 0;
+  margin: 0 max(12px, calc(var(--gutter) - 28px));
+  padding: clamp(64px, 11vh, 130px) 0;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: var(--ink);
-  color: var(--paper);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
   overflow: hidden;
 }
 
 .contact::before {
   content: '';
   position: absolute;
-  top: -30%;
+  top: -40%;
   left: 50%;
   width: 900px;
-  height: 900px;
+  height: 700px;
   transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(224, 137, 28, 0.16), transparent 60%);
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.12), transparent 62%);
   pointer-events: none;
 }
 
@@ -540,90 +546,97 @@
   gap: 9px;
   font-family: var(--mono);
   font-size: 10.5px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--amber-soft);
+  color: var(--emerald);
 }
 
 .contactDot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--amber);
-  box-shadow: 0 0 12px var(--amber);
+  background: var(--emerald);
+  box-shadow: 0 0 10px var(--emerald);
 }
 
 .contactTitle {
   position: relative;
-  margin-top: 26px;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(36px, 6.2vw, 84px);
-  line-height: 1;
-  letter-spacing: -0.02em;
+  margin-top: 22px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(33px, 5.4vw, 70px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
 }
 
 .contactTitle em {
-  font-style: italic;
-  color: var(--amber-soft);
+  font-style: normal;
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .contactLead {
   position: relative;
-  margin-top: 26px;
+  margin-top: 22px;
   max-width: 52ch;
-  font-size: clamp(15px, 1.5vw, 19px);
+  font-size: clamp(15px, 1.4vw, 18px);
   font-weight: 300;
   line-height: 1.62;
-  color: rgba(247, 243, 234, 0.72);
+  color: var(--fg-2);
 }
 
 .contactActions {
   position: relative;
-  margin-top: 40px;
+  margin-top: 36px;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 .contactPrimary,
 .contactGhost {
-  padding: 15px 30px;
-  border-radius: 999px;
+  padding: 14px 26px;
+  border-radius: 9px;
   text-decoration: none;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 500;
-  transition: transform 0.3s var(--ease), background 0.3s;
+  transition: transform 0.3s var(--ease), border-color 0.3s, color 0.3s, box-shadow 0.3s;
 }
 
 .contactPrimary {
-  background: var(--amber);
-  color: var(--ink);
+  background: linear-gradient(135deg, var(--cyan), #0ea5b7);
+  color: #04212a;
+  font-weight: 600;
   word-break: break-all;
+  box-shadow: 0 6px 24px rgba(34, 211, 238, 0.3);
 }
 
 .contactPrimary:hover {
   transform: translateY(-3px);
-  background: var(--amber-soft);
+  box-shadow: 0 12px 34px rgba(34, 211, 238, 0.45);
 }
 
 .contactGhost {
-  border: 1px solid rgba(247, 243, 234, 0.24);
-  color: var(--paper);
+  border: 1px solid var(--line);
+  background: rgba(148, 176, 214, 0.04);
+  color: var(--fg-2);
   font-family: var(--mono);
-  font-size: 13.5px;
+  font-size: 13px;
 }
 
 .contactGhost:hover {
   transform: translateY(-3px);
-  background: rgba(247, 243, 234, 0.08);
+  border-color: var(--cyan);
+  color: var(--cyan);
 }
 
 .contactLinks {
   position: relative;
-  margin-top: 64px;
-  padding-top: 32px;
-  border-top: 1px solid rgba(247, 243, 234, 0.14);
+  margin-top: 58px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line-soft);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 22px;
@@ -639,21 +652,21 @@
 .contactLinks span {
   font-family: var(--mono);
   font-size: 9.5px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(247, 243, 234, 0.45);
+  color: var(--fg-4);
 }
 
 .contactLinks strong {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 400;
-  color: var(--paper);
+  color: var(--fg);
   transition: color 0.25s;
   word-break: break-all;
 }
 
 .contactLinks a:hover strong {
-  color: var(--amber-soft);
+  color: var(--cyan);
 }
 
 .contactLinks i {
@@ -671,8 +684,9 @@
 .footer {
   position: relative;
   z-index: 1;
-  background: var(--ink);
-  color: rgba(247, 243, 234, 0.5);
+  background: var(--bg-2);
+  color: var(--fg-4);
+  border-top: 1px solid var(--line-soft);
 }
 
 .footInner {
@@ -681,22 +695,21 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 28px 0;
-  border-top: 1px solid rgba(247, 243, 234, 0.12);
-  font-size: 12.5px;
+  padding: 26px 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
 }
 
 .footInner a {
   text-decoration: none;
-  font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   transition: color 0.25s;
 }
 
 .footInner a:hover {
-  color: var(--amber-soft);
+  color: var(--cyan);
 }
 
 /* ---------------- responsive ---------------- */
@@ -716,7 +729,7 @@
   }
 
   .portrait {
-    max-width: 380px;
+    max-width: 360px;
   }
 
   .stackBox {
@@ -733,12 +746,16 @@
   .stackTab {
     white-space: nowrap;
   }
+
+  .stackTab[data-on] {
+    box-shadow: inset 0 -2px 0 var(--cyan);
+  }
 }
 
 @media (max-width: 700px) {
   .statsInner {
     grid-template-columns: repeat(2, 1fr);
-    gap: 30px 0;
+    gap: 28px 0;
   }
 
   .stat:nth-child(odd) {
@@ -752,6 +769,6 @@
   }
 
   .stackPanel {
-    padding: 24px;
+    padding: 22px;
   }
 }

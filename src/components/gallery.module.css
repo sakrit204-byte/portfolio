@@ -10,8 +10,8 @@
 .scrim {
   position: absolute;
   inset: 0;
-  background: rgba(26, 20, 16, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(2, 4, 8, 0.78);
+  backdrop-filter: blur(6px);
 }
 
 .panel {
@@ -20,30 +20,40 @@
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: clamp(28px, 4vw, 52px);
+  padding: clamp(26px, 4vw, 48px);
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
-  background: var(--paper-card);
+  background: var(--bg-2);
   box-shadow: var(--shadow-lg);
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
 }
 
 .close {
   position: absolute;
   top: 18px;
   right: 20px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   border: 1px solid var(--line);
-  background: var(--paper);
-  color: var(--ink-2);
+  background: var(--panel);
+  color: var(--fg-2);
   font-size: 13px;
-  transition: background 0.25s, transform 0.3s var(--ease);
+  transition: border-color 0.25s, color 0.25s;
 }
 
 .close:hover {
-  background: var(--amber-wash);
-  transform: rotate(90deg);
+  border-color: var(--rose);
+  color: var(--rose);
 }
 
 .head {
@@ -56,9 +66,9 @@
   gap: 9px;
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--rust);
+  color: var(--amber);
 }
 
 .badge {
@@ -66,48 +76,48 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  border-radius: 50%;
-  background: var(--amber-wash);
-  border: 1px solid rgba(221, 132, 18, 0.4);
+  border-radius: 6px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
   font-size: 10px;
   font-style: normal;
-  color: var(--amber);
 }
 
 .title {
   margin-top: 12px;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(28px, 3.6vw, 44px);
-  line-height: 1.05;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(26px, 3.4vw, 40px);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
 }
 
 .lead {
   margin-top: 12px;
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 300;
   line-height: 1.6;
-  color: var(--ink-2);
+  color: var(--fg-2);
 }
 
 .grid {
-  margin-top: 34px;
+  margin-top: 32px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  gap: 16px;
 }
 
 .frame {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 10px;
 }
 
 .shot {
   aspect-ratio: 16 / 10;
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--paper-2);
+  background: var(--panel);
   border: 1px solid var(--line-soft);
 }
 
@@ -120,18 +130,14 @@
 .shot[data-empty] {
   display: grid;
   place-items: center;
-  border: 1.5px dashed var(--line);
-  background:
-    repeating-linear-gradient(
-      45deg,
-      transparent 0 9px,
-      rgba(26, 20, 16, 0.025) 9px 18px
-    ),
-    var(--paper-2);
+  border: 1px dashed var(--line);
+  background-image: linear-gradient(rgba(148, 176, 214, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 176, 214, 0.05) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 
 .placeholder {
-  color: var(--ink-4);
+  color: var(--fg-4);
 }
 
 .frame figcaption {
@@ -141,7 +147,7 @@
 }
 
 .frame strong {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -150,12 +156,12 @@
   font-size: 9.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--fg-4);
 }
 
 .foot {
-  margin-top: 36px;
-  padding-top: 26px;
+  margin-top: 34px;
+  padding-top: 24px;
   border-top: 1px solid var(--line-soft);
   display: flex;
   flex-wrap: wrap;
@@ -164,31 +170,32 @@
 
 .cta,
 .ghost {
-  padding: 12px 26px;
-  border-radius: 999px;
-  font-size: 14.5px;
+  padding: 12px 24px;
+  border-radius: 9px;
+  font-size: 14px;
   font-weight: 500;
   text-decoration: none;
-  transition: transform 0.25s var(--ease), background 0.25s;
+  transition: transform 0.25s var(--ease), border-color 0.25s, color 0.25s;
 }
 
 .cta {
-  background: var(--ink);
-  color: var(--paper);
+  background: linear-gradient(135deg, var(--cyan), #0ea5b7);
+  color: #04212a;
+  font-weight: 600;
 }
 
 .cta:hover {
   transform: translateY(-2px);
-  background: var(--rust);
 }
 
 .ghost {
   border: 1px solid var(--line);
-  color: var(--ink-2);
+  color: var(--fg-2);
 }
 
 .ghost:hover {
-  background: var(--amber-wash);
+  border-color: var(--cyan);
+  color: var(--cyan);
 }
 
 @media (max-width: 860px) {
