@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { COURSE_FACTS, COURSE_FLAGS, COURSE_LINKS, GALLERY, ROUTE_HOLOS } from '../data/cv';
-import { CART_R, DISCOVER, HOME_R, ISLAND, LEFT_HOME, NEAR, createScene } from '../three/scene';
+import { CART_R, DISCOVER, HOME_R, ISLAND, LEFT_HOME, MAX_E, NEAR, SHORE_E, createScene } from '../three/scene';
 import Gallery from './Gallery';
 import s from './world.module.css';
 
@@ -29,6 +29,7 @@ export default function World({ onOpen, paused = false }) {
   const [holosOpen, setHolosOpen] = useState(0);
   const [facts, setFacts] = useState(() => new Set());
   const [toasts, setToasts] = useState([]);
+  const [respawn, setRespawn] = useState(null); // null | 3 | 2 | 1
 
   const sim = useRef({
     keys: new Set(),
@@ -48,6 +49,7 @@ export default function World({ onOpen, paused = false }) {
     hoverId: null,
     mode: 'ball',
     nearCart: false,
+    respawnT: 0, // >0 while drowning/counting down
   });
 
   const worldRef = useRef(null);
@@ -233,13 +235,44 @@ export default function World({ onOpen, paused = false }) {
     const right = new THREE.Vector3();
     const projected = new THREE.Vector3();
 
+    // You CAN drive into the sea now — the hard wall is far out, and crossing
+    // the shoreline triggers the splash + respawn sequence instead.
     const clampIsland = (pos, vel) => {
       const e = Math.hypot(pos.x / ISLAND.rx, pos.z / ISLAND.rz);
-      if (e > 1) {
-        pos.x /= e;
-        pos.z /= e;
-        vel.multiplyScalar(0.2); // the water is the wall
+      if (e > MAX_E) {
+        const k = MAX_E / e;
+        pos.x *= k;
+        pos.z *= k;
+        vel.multiplyScalar(0.1);
       }
+      return e;
+    };
+
+    const beginRespawn = (pos) => {
+      S.respawnT = 3.4; // a beat of splash, then 3-2-1
+      setRespawn(3);
+      world.splash(pos.x, pos.z);
+      S.keys.clear();
+      S.vel.multiplyScalar(0.15);
+    };
+
+    const finishRespawn = () => {
+      const home = world.cartHome;
+      if (S.mode === 'cart') {
+        S.mode = 'ball';
+        setMode('ball');
+        player.visible = true;
+      }
+      cart.group.position.set(home.x, 0, home.z);
+      cart.group.rotation.y = home.heading;
+      cartState.heading = home.heading;
+      cartState.speed = 0;
+      player.position.copy(START);
+      player.position.y = 0;
+      S.vel.set(0, 0, 0);
+      S.yawTarget = 0;
+      S.respawnT = 0;
+      setRespawn(null);
     };
 
     const frame = (now) => {
@@ -251,13 +284,14 @@ export default function World({ onOpen, paused = false }) {
 
       let ix = 0;
       let iz = 0;
-      if (!S.paused) {
+      if (!S.paused && S.respawnT <= 0) {
         if (S.keys.has('a') || S.keys.has('arrowleft')) ix -= 1;
         if (S.keys.has('d') || S.keys.has('arrowright')) ix += 1;
         if (S.keys.has('w') || S.keys.has('arrowup')) iz -= 1;
         if (S.keys.has('s') || S.keys.has('arrowdown')) iz += 1;
       }
 
+      let shoreE = 0;
       if (S.mode === 'ball') {
         S.yaw += (S.yawTarget - S.yaw) * (1 - Math.pow(0.001, dt));
         fwd.set(Math.sin(S.yaw), 0, Math.cos(S.yaw));
@@ -268,7 +302,7 @@ export default function World({ onOpen, paused = false }) {
 
         S.vel.add(accel).multiplyScalar(Math.pow(0.0016, dt));
         player.position.addScaledVector(S.vel, dt);
-        clampIsland(player.position, S.vel);
+        shoreE = clampIsland(player.position, S.vel);
       } else {
         /* cart: throttle + steering */
         cartState.speed += -iz * 34 * dt;
@@ -282,7 +316,7 @@ export default function World({ onOpen, paused = false }) {
         S.vel.set(dirX * cartState.speed, 0, dirZ * cartState.speed);
         cart.group.position.x += S.vel.x * dt;
         cart.group.position.z += S.vel.z * dt;
-        clampIsland(cart.group.position, S.vel);
+        shoreE = clampIsland(cart.group.position, S.vel);
         cartState.speed = Math.hypot(S.vel.x, S.vel.z) * Math.sign(cartState.speed || 1);
         cart.group.rotation.y = cartState.heading;
         S.yawTarget = cartState.heading;
@@ -290,6 +324,19 @@ export default function World({ onOpen, paused = false }) {
       }
 
       const pos = vehiclePos();
+
+      /* into the drink: splash, count down, respawn at the tee */
+      if (S.respawnT <= 0 && shoreE > SHORE_E && !S.paused) {
+        beginRespawn(pos);
+      }
+      if (S.respawnT > 0) {
+        S.respawnT -= dt;
+        const vehicle = S.mode === 'cart' ? cart.group : player;
+        vehicle.position.y = Math.max(-1.7, vehicle.position.y - dt * 1.1);
+        const count = clamp(Math.ceil(S.respawnT), 1, 3);
+        setRespawn((v) => (v === count ? v : count));
+        if (S.respawnT <= 0) finishRespawn();
+      }
 
       /* camera chase */
       const dist = S.mode === 'cart' ? 19 : 16.5;
@@ -384,6 +431,18 @@ export default function World({ onOpen, paused = false }) {
             key: `pins-${ev.downed}`,
             title: `Pins down — ${ev.downed}/${ev.total}`,
             text: 'Knock them all for a secret.',
+          });
+        } else if (ev.type === 'cones') {
+          pushToast({
+            key: `cones-${ev.downed}`,
+            title: `Slalom — ${ev.downed}/${ev.total} cones`,
+            text: 'Flatten every cone with the cart.',
+          });
+        } else if (ev.type === 'npc') {
+          pushToast({
+            key: 'npc',
+            title: 'Member down!',
+            text: 'Don’t worry — they always get back up.',
           });
         }
       }
@@ -522,6 +581,15 @@ export default function World({ onOpen, paused = false }) {
           </span>
         )}
       </div>
+
+      {respawn !== null && (
+        <div className={s.respawn} role="status">
+          <span className={s.respawnSplash}>SPLASH!</span>
+          <span className={s.respawnText}>
+            respawning in <b>{respawn}</b>
+          </span>
+        </div>
+      )}
 
       {holosOpen > 0 && !coarse && (
         <button className={s.closeChip} onClick={() => worldRef.current?.closeHolos()}>

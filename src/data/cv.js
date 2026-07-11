@@ -577,6 +577,8 @@ export const COURSE_FACTS = {
   langs: { title: 'Languages unlocked', text: 'JavaScript · Python · HTML5 · CSS3 · C' },
   tools: { title: 'Toolbelt unlocked', text: 'Git · Postman · Figma · Vercel' },
   home: { title: 'Home base', text: 'Bhaktapur, Nepal — shipping across every time zone' },
+  crates: { title: 'Zero-downtime unlocked', text: 'Studio infra: reverse-proxy hosting · 99.9% uptime · auto-restart services' },
+  cones: { title: 'Remote-ready unlocked', text: 'Clients across Nepal, Australia & beyond — async, across time zones' },
 };
 
 export const REFERENCES = [

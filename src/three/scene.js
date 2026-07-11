@@ -15,6 +15,8 @@ export const LEFT_HOME = HOME_R + 4;
 export const HOLO_R = 9; // route holograms open inside this radius
 export const CART_R = 4; // "press I" radius around the cart
 export const ISLAND = { rx: 72, rz: 56 }; // playable shore ellipse
+export const SHORE_E = 1.045; // beyond this you're in the water -> splash + respawn
+export const MAX_E = 1.3; // absolute hard wall out in the sea
 
 export const KIND_COLOR = {
   home: 0x4ade80,
@@ -621,6 +623,107 @@ function makeGate(x, z, yaw, accent) {
   return g;
 }
 
+/** Paved paver ribbon along a closed curve, for the park walkway. */
+function makePath(curve) {
+  const N = 150;
+  const half = 1.05;
+  const pos = [];
+  const cols = [];
+  const idx = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const p = curve.getPointAt(t);
+    const tan = curve.getTangentAt(t);
+    const nx = -tan.z;
+    const nz = tan.x;
+    pos.push(p.x + nx * half, 0.06, p.z + nz * half, p.x - nx * half, 0.06, p.z - nz * half);
+    // darker seams every few segments read as paver joints
+    const seam = i % 5 === 0 ? 0.78 : 1;
+    const c = 0.72 * seam;
+    cols.push(c, c * 0.985, c * 0.93, c, c * 0.985, c * 0.93);
+  }
+  for (let i = 0; i < N; i++) {
+    const a = i * 2;
+    idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+/** A low-poly park visitor who walks the path and ragdolls when hit. */
+function makeWalker(seed) {
+  const g = new THREE.Group();
+  const shirtColor = [0xe86f5a, 0x4f8ac9, 0xd9a441, 0x7a5fb8][seed % 4];
+  const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 });
+  const skin = mat(0xd9a06b);
+  const pants = mat(0x33415c);
+  const shirt = mat(shirtColor);
+
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.16), pants);
+  legL.position.set(-0.11, 0.28, 0);
+  const legR = legL.clone();
+  legR.position.x = 0.11;
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.26), shirt);
+  torso.position.y = 0.86;
+
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), shirt);
+  armL.position.set(-0.29, 0.9, 0);
+  const armR = armL.clone();
+  armR.position.x = 0.29;
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), skin);
+  head.position.y = 1.34;
+
+  for (const part of [legL, legR, torso, armL, armR, head]) {
+    part.castShadow = true;
+    g.add(part);
+  }
+  g.scale.setScalar(0.92 + hash2(seed, 3) * 0.14);
+  return { group: g, legL, legR, armL, armR };
+}
+
+function makeCone(x, z) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.ConeGeometry(0.32, 0.85, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf07d2d, roughness: 0.7 }),
+  );
+  body.position.y = 0.42;
+  body.castShadow = true;
+  g.add(body);
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.26, 0.14, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.6 }),
+  );
+  band.position.y = 0.42;
+  g.add(band);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function makeCrate(size) {
+  const g = new THREE.Group();
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(size, size, size),
+    new THREE.MeshStandardMaterial({ color: 0x8f6b43, roughness: 0.9 }),
+  );
+  box.castShadow = true;
+  g.add(box);
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(box.geometry),
+    new THREE.LineBasicMaterial({ color: 0x5d4128 }),
+  );
+  g.add(edges);
+  return g;
+}
+
 function makeCart() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
@@ -729,8 +832,19 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
 
   const addStatic = (x, z, r) => statics.push({ x, z, r });
 
-  /* trees — scattered on the rough, kept away from flags and holograms */
-  const keepOut = [...flags, ...holos];
+  /* trees — scattered on the rough, kept away from flags, holograms and games */
+  const keepOut = [
+    ...flags,
+    ...holos,
+    // park + walkway + cart games
+    { x: 32, z: 44 },
+    { x: 26, z: 38 },
+    { x: 40, z: 46 },
+    { x: 46, z: 34 },
+    { x: 22, z: -8 },
+    { x: 28, z: -16 },
+    { x: 34, z: -24 },
+  ];
   for (let i = 0; i < 46; i++) {
     const ang = hash2(i, 1) * Math.PI * 2;
     const e = 0.55 + hash2(i, 2) * 0.34;
@@ -792,6 +906,141 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
     );
     f.position.set(fx, 0.1, fz);
     scene.add(f);
+  }
+
+  /* paved walkway looping through the park, with people on it */
+  const walkCurve = new THREE.CatmullRomCurve3(
+    [
+      new THREE.Vector3(22, 0, 36),
+      new THREE.Vector3(31, 0, 32),
+      new THREE.Vector3(41, 0, 37),
+      new THREE.Vector3(45, 0, 46),
+      new THREE.Vector3(36, 0, 53),
+      new THREE.Vector3(25, 0, 50),
+    ],
+    true,
+  );
+  scene.add(makePath(walkCurve));
+
+  const walkers = [0, 1, 2, 3].map((i) => {
+    const w = makeWalker(i);
+    scene.add(w.group);
+    return {
+      ...w,
+      t: i / 4 + hash2(i, 9) * 0.08,
+      speed: 0.0115 + hash2(i, 4) * 0.004,
+      state: 'walk', // walk | rag | rise
+      vel: new THREE.Vector2(),
+      ragT: 0,
+      riseT: 0,
+      fallSign: 1,
+      phase: hash2(i, 6) * Math.PI * 2,
+    };
+  });
+  let npcToastDone = false;
+
+  /* crate pyramid — only the CART can smash it */
+  const CRATES = { x: 28, z: -16 };
+  const crateSize = 1.15;
+  const crates = [
+    [-1.2, 0.58, 0],
+    [0, 0.58, 0],
+    [1.2, 0.58, 0],
+    [-0.6, 1.74, 0],
+    [0.6, 1.74, 0],
+    [0, 2.9, 0],
+  ].map(([ox, oy, oz]) => {
+    const c = makeCrate(crateSize);
+    c.position.set(CRATES.x + ox, oy, CRATES.z + oz);
+    c.rotation.y = (hash2(ox, oy) - 0.5) * 0.3;
+    scene.add(c);
+    return { group: c, broken: false };
+  });
+  let cratesDone = false;
+  const fragments = [];
+  const fragGeo = new THREE.BoxGeometry(0.38, 0.1, 0.5);
+
+  function smashCrates(fromX, fromZ) {
+    for (const cr of crates) {
+      if (cr.broken) continue;
+      cr.broken = true;
+      const p = cr.group.position;
+      for (let i = 0; i < 6; i++) {
+        const frag = new THREE.Mesh(
+          fragGeo,
+          new THREE.MeshStandardMaterial({ color: 0x8f6b43, roughness: 0.9, transparent: true }),
+        );
+        frag.position.copy(p);
+        frag.castShadow = true;
+        scene.add(frag);
+        const away = Math.atan2(p.z - fromZ, p.x - fromX) + (hash2(i, p.x) - 0.5) * 1.6;
+        const power = 4 + hash2(i, p.z) * 6;
+        fragments.push({
+          mesh: frag,
+          vel: new THREE.Vector3(Math.cos(away) * power, 3.5 + hash2(i, 7) * 6, Math.sin(away) * power),
+          ang: new THREE.Vector3((hash2(i, 1) - 0.5) * 12, (hash2(i, 2) - 0.5) * 12, (hash2(i, 3) - 0.5) * 12),
+          life: 0,
+        });
+      }
+      scene.remove(cr.group);
+    }
+    if (!cratesDone) {
+      cratesDone = true;
+      events.push({ type: 'fact', id: 'crates' });
+    }
+  }
+
+  /* cone slalom — scatter every cone with the cart */
+  const cones = [
+    [16, -4],
+    [20, -8],
+    [24, -12],
+    [32, -20],
+    [36, -24],
+  ].map(([cx, cz]) => {
+    const c = makeCone(cx, cz);
+    scene.add(c);
+    const body = { group: c, vel: new THREE.Vector2(), r: 0.34, spin: 0, kind: 'cone', woken: false };
+    dynamics.push(body);
+    return body;
+  });
+  let conesDone = false;
+
+  /* water splashes */
+  const splashes = [];
+  function splash(x, z) {
+    const N = 80;
+    const pos = new Float32Array(N * 3);
+    const vels = [];
+    for (let i = 0; i < N; i++) {
+      pos[i * 3] = x;
+      pos[i * 3 + 1] = 0.1;
+      pos[i * 3 + 2] = z;
+      const a = hash2(i, 1) * Math.PI * 2;
+      const r = 1 + hash2(i, 2) * 4.5;
+      vels.push(new THREE.Vector3(Math.cos(a) * r, 4 + hash2(i, 3) * 7, Math.sin(a) * r));
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({ color: 0xd8f2fa, size: 0.24, transparent: true, opacity: 0.95, depthWrite: false }),
+    );
+    scene.add(pts);
+
+    const rings = [0, 1, 2].map((i) => {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.5, 0.72, 40),
+        new THREE.MeshBasicMaterial({ color: 0xeafcff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(x, -0.4, z);
+      ring.scale.setScalar(0.4 + i * 0.28);
+      scene.add(ring);
+      return ring;
+    });
+
+    splashes.push({ pts, vels, rings, life: 0 });
   }
 
   /* bowling pins — knock all six to unlock the toolbelt fact */
@@ -911,7 +1160,57 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   /* ---------------- physics ---------------- */
 
   /** Push a moving circle (the vehicle) out of statics and kick dynamics. */
-  function collide(pos, vel, r) {
+  function collide(pos, vel, r, mode) {
+    /* crates: rock-solid for the ball, smashable by a fast cart */
+    for (const cr of crates) {
+      if (cr.broken) continue;
+      const cp = cr.group.position;
+      const dx = pos.x - cp.x;
+      const dz = pos.z - cp.z;
+      const d = Math.hypot(dx, dz) || 0.001;
+      const min = r + 0.85;
+      if (d < min) {
+        const speed = Math.hypot(vel.x, vel.z);
+        if (mode === 'cart' && speed > 5) {
+          smashCrates(pos.x, pos.z);
+          vel.x *= 0.6;
+          vel.z *= 0.6;
+          break;
+        }
+        const nx = dx / d;
+        const nz = dz / d;
+        pos.x = cp.x + nx * min;
+        pos.z = cp.z + nz * min;
+        const vn = vel.x * nx + vel.z * nz;
+        if (vn < 0) {
+          vel.x -= 1.7 * vn * nx;
+          vel.z -= 1.7 * vn * nz;
+        }
+      }
+    }
+
+    /* park visitors: send them flying (gently) */
+    for (const w of walkers) {
+      if (w.state === 'rag') continue;
+      const wp = w.group.position;
+      const dx = wp.x - pos.x;
+      const dz = wp.z - pos.z;
+      const d = Math.hypot(dx, dz) || 0.001;
+      if (d < r + 0.5) {
+        const impact = Math.max(2.5, Math.hypot(vel.x, vel.z));
+        w.state = 'rag';
+        w.ragT = 0;
+        w.fallSign = hash2(wp.x, wp.z) > 0.5 ? 1 : -1;
+        w.vel.set((dx / d) * impact * 0.9, (dz / d) * impact * 0.9);
+        vel.x *= 0.8;
+        vel.z *= 0.8;
+        if (!npcToastDone) {
+          npcToastDone = true;
+          events.push({ type: 'npc' });
+        }
+      }
+    }
+
     for (const c of statics) {
       const dx = pos.x - c.x;
       const dz = pos.z - c.z;
@@ -960,6 +1259,19 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
               events.push({ type: 'pins', downed, total: pins.length });
             }
           }
+          if (b.kind === 'cone') {
+            if (mode !== 'cart') {
+              b.woken = false; // only the cart counts for the slalom
+            } else {
+              const downed = cones.filter((p) => p.woken).length;
+              if (downed >= cones.length && !conesDone) {
+                conesDone = true;
+                events.push({ type: 'fact', id: 'cones' });
+              } else {
+                events.push({ type: 'cones', downed, total: cones.length });
+              }
+            }
+          }
         }
       }
     }
@@ -972,7 +1284,8 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       b.group.position.x += b.vel.x * dt;
       b.group.position.z += b.vel.y * dt;
       b.group.rotation.y += b.spin * dt;
-      if (b.kind === 'pin' && sp > 2) b.group.rotation.z = Math.min(Math.PI / 2.2, b.group.rotation.z + sp * dt * 0.9);
+      if ((b.kind === 'pin' || b.kind === 'cone') && sp > 2)
+        b.group.rotation.z = Math.min(Math.PI / 2.2, b.group.rotation.z + sp * dt * 0.9);
       const damp = Math.exp(-2.6 * dt);
       b.vel.x *= damp;
       b.vel.y *= damp;
@@ -1006,8 +1319,110 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       cart.wheels.forEach((w) => (w.rotation.x += cartState.speed * dt * 2.6));
     }
 
-    collide(st.pos, st.vel, st.mode === 'cart' ? 1.5 : 0.5);
+    collide(st.pos, st.vel, st.mode === 'cart' ? 1.5 : 0.5, st.mode);
     stepDynamics(dt);
+
+    /* park visitors */
+    for (const w of walkers) {
+      if (w.state === 'walk') {
+        if (!calm) w.t = (w.t + w.speed * dt) % 1;
+        const p = walkCurve.getPointAt(w.t);
+        const tan = walkCurve.getTangentAt(w.t);
+        w.group.position.set(p.x, 0, p.z);
+        w.group.rotation.set(0, Math.atan2(tan.x, tan.z), 0);
+        const ph = clock * 7 + w.phase;
+        const swing = calm ? 0 : Math.sin(ph) * 0.65;
+        w.legL.rotation.x = swing;
+        w.legR.rotation.x = -swing;
+        w.armL.rotation.x = -swing * 0.8;
+        w.armR.rotation.x = swing * 0.8;
+      } else if (w.state === 'rag') {
+        w.ragT += dt;
+        w.group.position.x += w.vel.x * dt;
+        w.group.position.z += w.vel.y * dt;
+        const damp = Math.exp(-2.2 * dt);
+        w.vel.x *= damp;
+        w.vel.y *= damp;
+        // flop over with splayed limbs, plus a little tumble on the way down
+        const fall = Math.min(1, w.ragT / 0.45);
+        w.group.rotation.x = (-Math.PI / 2) * fall * w.fallSign;
+        w.group.rotation.y += dt * 2.4 * (1 - fall) * w.fallSign;
+        w.legL.rotation.x = 0.9 * fall;
+        w.legR.rotation.x = -0.7 * fall;
+        w.armL.rotation.x = -1.2 * fall;
+        w.armR.rotation.x = 1.1 * fall;
+        if (w.ragT > 3) {
+          w.state = 'rise';
+          w.riseT = 0;
+        }
+      } else {
+        w.riseT += dt;
+        const k = Math.min(1, w.riseT / 0.9);
+        const ease = 1 - Math.pow(1 - k, 3);
+        w.group.rotation.x = (-Math.PI / 2) * w.fallSign * (1 - ease);
+        w.legL.rotation.x *= 1 - ease;
+        w.legR.rotation.x *= 1 - ease;
+        w.armL.rotation.x *= 1 - ease;
+        w.armR.rotation.x *= 1 - ease;
+        const home = walkCurve.getPointAt(w.t);
+        w.group.position.lerp(new THREE.Vector3(home.x, 0, home.z), ease * 0.12);
+        if (k >= 1) w.state = 'walk';
+      }
+    }
+
+    /* crate debris */
+    for (let i = fragments.length - 1; i >= 0; i--) {
+      const f = fragments[i];
+      f.life += dt;
+      f.vel.y -= 22 * dt;
+      f.mesh.position.addScaledVector(f.vel, dt);
+      if (f.mesh.position.y < 0.08) {
+        f.mesh.position.y = 0.08;
+        f.vel.y *= -0.32;
+        f.vel.x *= 0.7;
+        f.vel.z *= 0.7;
+      }
+      f.mesh.rotation.x += f.ang.x * dt;
+      f.mesh.rotation.y += f.ang.y * dt;
+      f.mesh.rotation.z += f.ang.z * dt;
+      f.mesh.material.opacity = 1 - Math.max(0, (f.life - 2.6) / 1.2);
+      if (f.life > 3.8) {
+        scene.remove(f.mesh);
+        f.mesh.material.dispose();
+        fragments.splice(i, 1);
+      }
+    }
+
+    /* water splashes */
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const sp = splashes[i];
+      sp.life += dt;
+      const posAttr = sp.pts.geometry.attributes.position;
+      for (let j = 0; j < sp.vels.length; j++) {
+        const v = sp.vels[j];
+        v.y -= 18 * dt;
+        posAttr.array[j * 3] += v.x * dt;
+        posAttr.array[j * 3 + 1] += v.y * dt;
+        posAttr.array[j * 3 + 2] += v.z * dt;
+      }
+      posAttr.needsUpdate = true;
+      sp.pts.material.opacity = Math.max(0, 0.95 - sp.life * 0.7);
+      sp.rings.forEach((ring, ri) => {
+        ring.scale.addScalar(dt * (4 + ri * 2.2));
+        ring.material.opacity = Math.max(0, 0.75 - sp.life * (0.55 + ri * 0.12));
+      });
+      if (sp.life > 1.6) {
+        scene.remove(sp.pts);
+        sp.pts.geometry.dispose();
+        sp.pts.material.dispose();
+        sp.rings.forEach((ring) => {
+          scene.remove(ring);
+          ring.geometry.dispose();
+          ring.material.dispose();
+        });
+        splashes.splice(i, 1);
+      }
+    }
 
     for (const o of nodeObjs) {
       const found = st.discovered.has(o.id);
@@ -1101,6 +1516,8 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
     raycaster,
     update,
     events,
+    splash,
+    cartHome: { x: 9, z: 20, heading: 0.8 },
 
     closeHolos() {
       for (const h of holoObjs) {
