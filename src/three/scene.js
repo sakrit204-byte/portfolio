@@ -255,82 +255,82 @@ function flagTexture(node, accentCss) {
 
 function holoTexture(node, galleryEntry) {
   const c = document.createElement('canvas');
-  c.width = 640;
-  c.height = 420;
+  c.width = 880;
+  c.height = 578;
   const g = c.getContext('2d');
 
   const draw = (img) => {
-    g.clearRect(0, 0, 640, 420);
+    g.clearRect(0, 0, 880, 578);
     // glass panel
-    g.fillStyle = 'rgba(6, 18, 34, 0.92)';
+    g.fillStyle = 'rgba(6, 18, 34, 0.93)';
     g.beginPath();
-    g.roundRect(4, 4, 632, 412, 18);
+    g.roundRect(5, 5, 870, 568, 24);
     g.fill();
     g.strokeStyle = 'rgba(34, 211, 238, 0.9)';
-    g.lineWidth = 2.5;
+    g.lineWidth = 3.5;
     g.stroke();
 
     g.fillStyle = '#8df4ff';
-    g.font = '600 17px "JetBrains Mono", monospace';
-    g.fillText('◈ PROJECT DATA', 30, 42);
+    g.font = '600 23px "JetBrains Mono", monospace';
+    g.fillText('◈ PROJECT DATA', 42, 58);
 
     g.fillStyle = '#ffffff';
-    g.font = '700 34px Inter, Arial, sans-serif';
-    g.fillText(node.study?.title ?? node.label, 30, 84);
-    g.fillStyle = 'rgba(200, 220, 240, 0.75)';
-    g.font = '400 17px Inter, Arial, sans-serif';
-    g.fillText(node.study?.role ?? node.kicker, 30, 112);
+    g.font = '700 48px Inter, Arial, sans-serif';
+    g.fillText(node.study?.title ?? node.label, 42, 118);
+    g.fillStyle = 'rgba(200, 220, 240, 0.78)';
+    g.font = '400 24px Inter, Arial, sans-serif';
+    g.fillText(node.study?.role ?? node.kicker, 42, 155);
 
     // screenshot slot
-    const sx = 30;
-    const sy = 132;
-    const sw = 580;
-    const sh = 216;
+    const sx = 42;
+    const sy = 182;
+    const sw = 796;
+    const sh = 296;
     if (img) {
       g.save();
       g.beginPath();
-      g.roundRect(sx, sy, sw, sh, 10);
+      g.roundRect(sx, sy, sw, sh, 14);
       g.clip();
       const scale = Math.max(sw / img.width, sh / img.height);
       g.drawImage(img, sx + (sw - img.width * scale) / 2, sy + (sh - img.height * scale) / 2, img.width * scale, img.height * scale);
       g.restore();
     } else {
       g.strokeStyle = 'rgba(141, 244, 255, 0.4)';
-      g.setLineDash([8, 7]);
-      g.lineWidth = 1.5;
+      g.setLineDash([11, 9]);
+      g.lineWidth = 2;
       g.strokeRect(sx, sy, sw, sh);
       g.setLineDash([]);
-      for (let x = sx; x < sx + sw; x += 22) {
+      for (let x = sx; x < sx + sw; x += 30) {
         g.strokeStyle = 'rgba(141, 244, 255, 0.06)';
         g.beginPath();
         g.moveTo(x, sy);
         g.lineTo(x + sh, sy + sh);
         g.stroke();
       }
-      g.fillStyle = 'rgba(141, 244, 255, 0.7)';
-      g.font = '600 16px "JetBrains Mono", monospace';
+      g.fillStyle = 'rgba(141, 244, 255, 0.75)';
+      g.font = '600 23px "JetBrains Mono", monospace';
       g.textAlign = 'center';
-      g.fillText('[ SCREENSHOT AWAITING UPLOAD ]', 320, sy + sh / 2 + 6);
+      g.fillText('[ SCREENSHOT AWAITING UPLOAD ]', 440, sy + sh / 2 + 8);
       g.textAlign = 'left';
     }
 
     // metric chips
     const metrics = node.study?.metrics ?? [];
-    let mx = 30;
-    g.font = '600 15px "JetBrains Mono", monospace';
+    let mx = 42;
+    g.font = '600 21px "JetBrains Mono", monospace';
     for (const m of metrics.slice(0, 3)) {
       const label = `${m.value} ${m.label}`;
-      const w = g.measureText(label).width + 26;
+      const w = g.measureText(label).width + 34;
       g.fillStyle = 'rgba(34, 211, 238, 0.12)';
       g.beginPath();
-      g.roundRect(mx, 368, w, 32, 8);
+      g.roundRect(mx, 502, w, 44, 10);
       g.fill();
       g.strokeStyle = 'rgba(34, 211, 238, 0.45)';
-      g.lineWidth = 1;
+      g.lineWidth = 1.5;
       g.stroke();
       g.fillStyle = '#a9f4ff';
-      g.fillText(label, mx + 13, 389);
-      mx += w + 10;
+      g.fillText(label, mx + 17, 531);
+      mx += w + 13;
     }
   };
 
@@ -408,11 +408,11 @@ function makeFlagNode(node, gallery) {
 
   /* hologram: beam + billboard panel, closed until the player is near */
   const holo = new THREE.Group();
-  holo.position.y = 5.9;
+  holo.position.y = 6.7;
   holo.visible = false;
 
   const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.12, 0.75, 1.8, 20, 1, true),
+    new THREE.CylinderGeometry(0.16, 0.85, 2.6, 20, 1, true),
     new THREE.MeshBasicMaterial({
       color: 0x67e8f9,
       transparent: true,
@@ -422,7 +422,7 @@ function makeFlagNode(node, gallery) {
       side: THREE.DoubleSide,
     }),
   );
-  beam.position.y = -1.55;
+  beam.position.y = -2.5;
   holo.add(beam);
 
   const galleryEntry = gallery.find(
@@ -437,7 +437,7 @@ function makeFlagNode(node, gallery) {
     side: THREE.DoubleSide,
     depthWrite: false,
   });
-  const panel = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 2.36), panelMat);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.42), panelMat);
   panel.userData.nodeId = node.id;
   holo.add(panel);
   g.add(holo);
@@ -461,7 +461,9 @@ function makeFlagNode(node, gallery) {
 
 /* ------------------------------------------------------------------ */
 
-export function createScene(canvas, { nodes, links, gallery, calm }) {
+export function createScene(canvas, { nodes, links, gallery, calm, coarse }) {
+  // Touch screens are small and held at arm's length — supersize the holograms.
+  const holoBoost = coarse ? 1.3 : 1;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0xd7e8f4, 1);
@@ -632,10 +634,10 @@ export function createScene(canvas, { nodes, links, gallery, calm }) {
       o.holo.visible = t > 0.02;
       if (o.holo.visible) {
         const ease = 1 - Math.pow(1 - t, 3);
-        o.holo.scale.setScalar(0.05 + 0.95 * ease);
+        o.holo.scale.setScalar((0.05 + 0.95 * ease) * holoBoost);
         o.panel.material.opacity = 0.96 * ease;
         o.beam.material.opacity = 0.2 * ease;
-        if (!calm) o.holo.position.y = 5.9 + Math.sin(clock * 1.6) * 0.07;
+        if (!calm) o.holo.position.y = 6.7 + Math.sin(clock * 1.6) * 0.07;
         // billboard the panel toward the camera (yaw only)
         const dx = camera.position.x - o.group.position.x;
         const dz = camera.position.z - o.group.position.z;
@@ -671,6 +673,9 @@ export function createScene(canvas, { nodes, links, gallery, calm }) {
     resize(w, h) {
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
+      // Portrait phones see a thin vertical slice at 50° — widen the view so
+      // the course (and an open hologram) still fits the frame.
+      camera.fov = camera.aspect < 0.9 ? 66 : camera.aspect < 1.4 ? 58 : 50;
       camera.updateProjectionMatrix();
     },
 

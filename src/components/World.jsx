@@ -72,7 +72,7 @@ export default function World({ onOpen, paused = false }) {
 
     let world;
     try {
-      world = createScene(canvas, { nodes: NODES, links: LINKS, gallery: GALLERY, calm: S.calm });
+      world = createScene(canvas, { nodes: NODES, links: LINKS, gallery: GALLERY, calm: S.calm, coarse: isCoarse });
     } catch (err) {
       console.error('WebGL unavailable:', err);
       setFailed(true);
