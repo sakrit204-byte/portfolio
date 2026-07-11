@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { LINKS, NODES } from '../data/cv';
+import { GALLERY, LINKS, NODES } from '../data/cv';
 import { BOUNDS, DISCOVER, HOME_R, LEFT_HOME, NEAR, UNIT, createScene } from '../three/scene';
 import Gallery from './Gallery';
 import s from './world.module.css';
@@ -13,7 +13,6 @@ const START = new THREE.Vector3(0, 0, 5.4);
 export default function World({ onOpen, paused = false }) {
   const stageRef = useRef(null);
   const canvasRef = useRef(null);
-  const labelRefs = useRef({});
   const arrowRefs = useRef({});
   const playerDotRef = useRef(null);
 
@@ -73,7 +72,7 @@ export default function World({ onOpen, paused = false }) {
 
     let world;
     try {
-      world = createScene(canvas, { nodes: NODES, links: LINKS, calm: S.calm });
+      world = createScene(canvas, { nodes: NODES, links: LINKS, gallery: GALLERY, calm: S.calm });
     } catch (err) {
       console.error('WebGL unavailable:', err);
       setFailed(true);
@@ -81,7 +80,7 @@ export default function World({ onOpen, paused = false }) {
     }
     setReady(true);
 
-    const { renderer, scene, camera, nodeObjs, byId, linkObjs, player, raycaster } = world;
+    const { renderer, scene, camera, nodeObjs, byId, player, raycaster } = world;
     const homeObj = byId.home;
 
     player.position.copy(START);
@@ -119,12 +118,11 @@ export default function World({ onOpen, paused = false }) {
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
 
-    /* ---------- pointer: drag orbits the camera, click picks a node ---------- */
+    /* ---------- pointer: drag orbits, click picks a flag ---------- */
     const pointer = new THREE.Vector2();
     let hasPointer = false;
 
     const onPointerDown = (e) => {
-      if (e.target.closest('[data-label]')) return;
       S.drag = { x: e.clientX };
       S.dragMoved = false;
       stage.setPointerCapture?.(e.pointerId);
@@ -155,6 +153,14 @@ export default function World({ onOpen, paused = false }) {
 
     const onClick = () => {
       if (S.dragMoved) return;
+      // touch devices have no hover state — resolve the tap through the raycaster
+      if (isCoarse) {
+        raycaster.setFromCamera(pointer, camera);
+        const hit = raycaster.intersectObjects(world.pickMeshes, false)[0];
+        const id = hit?.object.userData.nodeId;
+        if (id) openNode(id);
+        return;
+      }
       if (S.hoverId) openNode(S.hoverId);
     };
 
@@ -195,9 +201,7 @@ export default function World({ onOpen, paused = false }) {
       fwd.set(Math.sin(S.yaw), 0, Math.cos(S.yaw));
       right.set(Math.cos(S.yaw), 0, -Math.sin(S.yaw));
 
-      const accel = new THREE.Vector3()
-        .addScaledVector(right, ix)
-        .addScaledVector(fwd, iz);
+      const accel = new THREE.Vector3().addScaledVector(right, ix).addScaledVector(fwd, iz);
       if (accel.lengthSq() > 0) accel.normalize().multiplyScalar(74 * dt);
 
       S.vel.add(accel).multiplyScalar(Math.pow(0.0016, dt));
@@ -205,36 +209,14 @@ export default function World({ onOpen, paused = false }) {
       player.position.x = clamp(player.position.x, -BOUNDS.x, BOUNDS.x);
       player.position.z = clamp(player.position.z, BOUNDS.zMin, BOUNDS.zMax);
 
-      // bob + spin
-      if (!S.calm) {
-        player.children[0].position.y = 0.85 + Math.sin(clock * 2.4) * 0.08;
-        player.children[0].rotation.y += dt * 0.9;
-      }
-
-      /* trail */
-      if (!S.calm) {
-        if (!world.trailPts.length || world.trailPts[0].distanceTo(player.position) > 0.35) {
-          world.trailPts.unshift(player.position.clone().setY(0.5));
-          if (world.trailPts.length > 60) world.trailPts.pop();
-        }
-        for (let i = 0; i < 60; i++) {
-          const p = world.trailPts[Math.min(i, world.trailPts.length - 1)] ?? player.position;
-          world.trailPos[i * 3] = p.x;
-          world.trailPos[i * 3 + 1] = p.y;
-          world.trailPos[i * 3 + 2] = p.z;
-        }
-        world.trail.geometry.attributes.position.needsUpdate = true;
-      }
-
-      /* camera: chase from behind-and-above, orbiting with yaw.
-         +z offset so the camera looks down -z, the direction W travels. */
+      /* camera: chase from behind-and-above, orbiting with yaw */
       camPos.set(
-        player.position.x + Math.sin(S.yaw) * 19,
-        17,
-        player.position.z + Math.cos(S.yaw) * 19,
+        player.position.x + Math.sin(S.yaw) * 16.5,
+        12,
+        player.position.z + Math.cos(S.yaw) * 16.5,
       );
       camera.position.lerp(camPos, S.calm ? 1 : 1 - Math.pow(0.0009, dt));
-      camLook.copy(player.position).setY(1.6);
+      camLook.copy(player.position).setY(2);
       camera.lookAt(camLook);
 
       /* proximity + discovery */
@@ -260,7 +242,7 @@ export default function World({ onOpen, paused = false }) {
         setActiveId(nextActive);
       }
 
-      /* base camp -> gallery, once the player has actually left it */
+      /* clubhouse -> gallery, once the player has actually left it */
       const dHome = homeObj.base.distanceTo(player.position);
       if (dHome > LEFT_HOME) S.leftHome = true;
       if (S.leftHome && dHome < HOME_R && !S.galleryDone && !S.paused) {
@@ -271,7 +253,7 @@ export default function World({ onOpen, paused = false }) {
       /* hover picking */
       if (hasPointer && !S.drag && !isCoarse) {
         raycaster.setFromCamera(pointer, camera);
-        const hit = raycaster.intersectObjects(world.coreMeshes, false)[0];
+        const hit = raycaster.intersectObjects(world.pickMeshes, false)[0];
         const id = hit?.object.userData.nodeId ?? null;
         if (id !== S.hoverId) {
           S.hoverId = id;
@@ -280,92 +262,41 @@ export default function World({ onOpen, paused = false }) {
         }
       }
 
-      /* node animation */
-      for (const o of nodeObjs) {
-        const found = S.discovered.has(o.id);
-        const hot = S.activeId === o.id || S.hoverId === o.id;
-        const t = clock + o.base.x;
-
-        if (!S.calm) {
-          o.shell.rotation.y += dt * (hot ? 0.9 : 0.32);
-          o.shell.rotation.x += dt * 0.12;
-          o.core.rotation.y -= dt * 0.5;
-          o.group.position.y = Math.sin(t * 0.8) * 0.14;
-          o.ring.scale.setScalar(1 + Math.sin(t * 1.6) * 0.04);
-        }
-
-        // Undiscovered nodes must still read clearly against the dark floor —
-        // they are the thing the visitor is meant to walk toward.
-        const targetEmissive = found ? (hot ? 2.6 : 1.35) : 0.7;
-        o.core.material.emissiveIntensity += (targetEmissive - o.core.material.emissiveIntensity) * 0.12;
-
-        const targetGlow = found ? (hot ? 1 : 0.62) : 0.34;
-        o.glow.material.opacity += (targetGlow - o.glow.material.opacity) * 0.12;
-
-        const targetShell = hot ? 0.8 : found ? 0.48 : 0.3;
-        o.shell.material.opacity += (targetShell - o.shell.material.opacity) * 0.12;
-
-        o.ring.material.opacity = found ? 0.55 : 0.3;
-        o.beam.material.opacity = found ? 0.34 : 0.2;
-      }
-
-      /* link packets flow between discovered nodes */
-      for (const l of linkObjs) {
-        const lit = S.discovered.has(l.a) && S.discovered.has(l.b);
-        l.line.material.opacity += ((lit ? 0.62 : 0.16) - l.line.material.opacity) * 0.1;
-        l.line.material.color.lerp(new THREE.Color(lit ? 0x22d3ee : 0x334155), 0.06);
-
-        if (lit && !S.calm) {
-          const t = (clock * 0.22 + l.seed) % 1;
-          l.curve.getPoint(t, l.packet.position);
-          l.packet.material.opacity = Math.sin(t * Math.PI) * 0.9;
-        } else {
-          l.packet.material.opacity = 0;
-        }
-      }
-
-      world.grid.material.uniforms.uTime.value = clock;
-      world.particles.material.uniforms.uTime.value = clock;
-      world.pGlow.material.opacity = 0.6 + Math.sin(clock * 3) * 0.12;
+      world.update(dt, clock, {
+        active: S.activeId,
+        hover: S.hoverId,
+        discovered: S.discovered,
+        vel: S.vel,
+      });
 
       renderer.render(scene, camera);
-      paintLabels();
+      paintDom();
     };
 
-    /* Project each node into screen space and place its HTML label there. */
-    const paintLabels = () => {
+    /* Off-screen flag arrows + minimap player dot. */
+    const paintDom = () => {
       const w = renderer.domElement.clientWidth;
       const h = renderer.domElement.clientHeight;
       const pad = 42;
 
       for (const o of nodeObjs) {
-        const el = labelRefs.current[o.id];
         const arrow = arrowRefs.current[o.id];
-        projected.copy(o.base).setY(4.1).project(camera);
+        if (!arrow) continue;
+        projected.copy(o.base).setY(3.4).project(camera);
 
         const behind = projected.z > 1;
         const sx = (projected.x * 0.5 + 0.5) * w;
         const sy = (-projected.y * 0.5 + 0.5) * h;
         const onScreen = !behind && sx > pad && sx < w - pad && sy > pad && sy < h - pad;
 
-        if (el) {
-          el.style.opacity = onScreen ? '1' : '0';
-          el.style.pointerEvents = onScreen ? 'auto' : 'none';
-          // sit the label above the node rather than on top of it
-          if (onScreen) el.style.transform = `translate3d(${sx}px, ${sy}px, 0) translate(-50%, -100%)`;
-        }
-
-        if (arrow) {
-          arrow.style.opacity = onScreen ? '0' : '1';
-          if (!onScreen) {
-            // flip the vector when the node is behind the camera
-            const dx = (behind ? -projected.x : projected.x) * (w / 2);
-            const dy = (behind ? projected.y : -projected.y) * (h / 2);
-            const ang = Math.atan2(dy, dx);
-            const ex = clamp(w / 2 + dx, pad, w - pad);
-            const ey = clamp(h / 2 + dy, pad, h - pad);
-            arrow.style.transform = `translate3d(${ex}px, ${ey}px, 0) rotate(${ang}rad)`;
-          }
+        arrow.style.opacity = onScreen ? '0' : '1';
+        if (!onScreen) {
+          const dx = (behind ? -projected.x : projected.x) * (w / 2);
+          const dy = (behind ? projected.y : -projected.y) * (h / 2);
+          const ang = Math.atan2(dy, dx);
+          const ex = clamp(w / 2 + dx, pad, w - pad);
+          const ey = clamp(h / 2 + dy, pad, h - pad);
+          arrow.style.transform = `translate3d(${ex}px, ${ey}px, 0) rotate(${ang}rad)`;
         }
       }
 
@@ -403,6 +334,7 @@ export default function World({ onOpen, paused = false }) {
 
   const found = discovered.size;
   const total = NODES.length;
+  const activeNode = activeId ? NODES.find((n) => n.id === activeId) : null;
 
   return (
     <div className={s.stage} ref={stageRef}>
@@ -410,38 +342,19 @@ export default function World({ onOpen, paused = false }) {
 
       {failed && (
         <div className={s.fallback}>
-          <p>Your browser blocked WebGL, so the 3D map can’t render.</p>
+          <p>Your browser blocked WebGL, so the course can’t render.</p>
           <a href="#work">Browse the work as cards →</a>
         </div>
       )}
 
-      {/* Labels are real buttons projected onto the 3D nodes: the map stays
-          keyboard- and screen-reader navigable. */}
-      <div className={s.labels}>
+      {/* Keyboard / screen-reader access to every flag, independent of the 3D picking. */}
+      <nav aria-label="Course flags">
         {NODES.map((n) => (
-          <button
-            key={n.id}
-            data-label
-            data-kind={n.kind}
-            data-active={activeId === n.id || undefined}
-            data-found={discovered.has(n.id) || undefined}
-            className={s.label}
-            ref={(el) => {
-              labelRefs.current[n.id] = el;
-            }}
-            onClick={() => !sim.current.dragMoved && openNode(n.id)}
-            aria-label={`${n.label} — ${n.kicker}. Open case study.`}
-          >
-            <span className={s.labelKicker}>{n.kicker}</span>
-            <span className={s.labelName}>{n.label}</span>
-            {activeId === n.id && !coarse && (
-              <span className={s.hint}>
-                <kbd>E</kbd> inspect
-              </span>
-            )}
+          <button key={n.id} className="srOnly" onClick={() => openNode(n.id)}>
+            {n.label} — {n.kicker}. Open case study.
           </button>
         ))}
-      </div>
+      </nav>
 
       <div className={s.arrows} aria-hidden="true">
         {NODES.map((n) => (
@@ -460,11 +373,29 @@ export default function World({ onOpen, paused = false }) {
         ))}
       </div>
 
+      {/* The inspect prompt: its own clean element, nothing else attached. */}
+      {activeNode && (
+        <button className={s.prompt} onClick={() => openNode(activeNode.id)}>
+          {coarse ? (
+            <span className={s.promptText}>
+              Tap to inspect — <b>{activeNode.label}</b>
+            </span>
+          ) : (
+            <>
+              <kbd className={s.promptKey}>E</kbd>
+              <span className={s.promptText}>
+                inspect <b>{activeNode.label}</b>
+              </span>
+            </>
+          )}
+        </button>
+      )}
+
       {/* HUD */}
       <div className={s.hudTop}>
         <div className={s.counter} role="status" aria-live="polite">
           <span className="srOnly">
-            {found} of {total} nodes discovered
+            {found} of {total} flags reached
           </span>
           <span className={s.counterNum} aria-hidden="true">
             {String(found).padStart(2, '0')}
@@ -472,27 +403,27 @@ export default function World({ onOpen, paused = false }) {
             {String(total).padStart(2, '0')}
           </span>
           <span className={s.counterLabel} aria-hidden="true">
-            nodes mapped
+            flags reached
           </span>
           <span className={s.meter} aria-hidden="true">
             <i style={{ transform: `scaleX(${found / total})` }} />
           </span>
         </div>
-        {found === total && <span className={s.complete}>// graph complete</span>}
+        {found === total && <span className={s.complete}>// course complete</span>}
       </div>
 
       <div className={s.hudBottom}>
         <p className={s.controls} data-dim={touched || undefined}>
           {coarse ? (
             <>
-              <b>Drag</b> to orbit · <b>Tap</b> a node
+              <b>Drag</b> to orbit · <b>Tap</b> a flag
             </>
           ) : (
             <>
               <kbd>W</kbd>
               <kbd>A</kbd>
               <kbd>S</kbd>
-              <kbd>D</kbd> move · <b>drag</b> to orbit · <kbd>E</kbd> inspect
+              <kbd>D</kbd> roll the ball · <b>drag</b> to orbit
             </>
           )}
         </p>
@@ -520,7 +451,7 @@ export default function World({ onOpen, paused = false }) {
         <span className={s.mmPlayer} ref={playerDotRef} />
       </div>
 
-      {!ready && !failed && <div className={s.boot}>initialising scene…</div>}
+      {!ready && !failed && <div className={s.boot}>preparing the course…</div>}
 
       <Gallery open={gallery} onClose={() => setGallery(false)} />
     </div>

@@ -58,7 +58,7 @@ export default function Hero({ onOpen, paused }) {
       <div className={s.map}>
         <span className={s.mapTag} aria-hidden="true">
           <i />
-          interactive_scene.gl — walk it
+          the_course.gl — roll the ball, reach the flags
         </span>
         <World onOpen={onOpen} paused={paused} />
       </div>

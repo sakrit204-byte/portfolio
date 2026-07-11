@@ -43,7 +43,7 @@ export const NODES = [
     x: 0,
     y: 0,
     label: 'Sakrit Kafle',
-    kicker: 'BASE NODE',
+    kicker: 'CLUBHOUSE',
     note: 'start here',
     study: {
       title: 'Sakrit Kafle',
