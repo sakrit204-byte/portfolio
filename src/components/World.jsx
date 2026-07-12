@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { COURSE_FACTS, COURSE_FLAGS, COURSE_LINKS, GALLERY, ROUTE_HOLOS } from '../data/cv';
-import { CART_R, DISCOVER, HOME_R, ISLAND, LEFT_HOME, MAX_E, NEAR, SHORE_E, createScene } from '../three/scene';
+import { CART_R, DISCOVER, HOME_R, ISLAND, LEFT_HOME, MAX_E, NEAR, SHORE_E, createScene, groundHeight } from '../three/scene';
 import Gallery from './Gallery';
 import s from './world.module.css';
 
@@ -50,6 +50,8 @@ export default function World({ onOpen, paused = false }) {
     mode: 'ball',
     nearCart: false,
     respawnT: 0, // >0 while drowning/counting down
+    airY: 0, // ball altitude above ground (golfer shots)
+    airVy: 0,
   });
 
   const worldRef = useRef(null);
@@ -270,6 +272,8 @@ export default function World({ onOpen, paused = false }) {
       player.position.copy(START);
       player.position.y = 0;
       S.vel.set(0, 0, 0);
+      S.airY = 0;
+      S.airVy = 0;
       S.yawTarget = 0;
       S.respawnT = 0;
       setRespawn(null);
@@ -277,7 +281,8 @@ export default function World({ onOpen, paused = false }) {
 
     const frame = (now) => {
       raf = requestAnimationFrame(frame);
-      const dt = clamp((now - last) / 1000, 0, 0.05);
+      const real = (now - last) / 1000;
+      const dt = clamp(real, 0, 0.08);
       last = now;
       if (!S.visible) return;
       clock += dt;
@@ -300,9 +305,22 @@ export default function World({ onOpen, paused = false }) {
         const accel = new THREE.Vector3().addScaledVector(right, ix).addScaledVector(fwd, iz);
         if (accel.lengthSq() > 0) accel.normalize().multiplyScalar(92 * dt);
 
-        S.vel.add(accel).multiplyScalar(Math.pow(0.0016, dt));
+        /* golfer-shot flight: ballistic vertical, low drag while airborne */
+        if (S.airY > 0 || S.airVy !== 0) {
+          S.airVy -= 30 * dt;
+          S.airY += S.airVy * dt;
+          if (S.airY <= 0) {
+            S.airY = 0;
+            S.airVy = 0;
+          }
+        }
+        const drag = S.airY > 0 ? 0.35 : 0.0016;
+        S.vel.add(accel).multiplyScalar(Math.pow(drag, dt));
         player.position.addScaledVector(S.vel, dt);
         shoreE = clampIsland(player.position, S.vel);
+        if (S.respawnT <= 0) {
+          player.position.y = groundHeight(player.position.x, player.position.z) + S.airY;
+        }
       } else {
         /* cart: throttle + steering */
         cartState.speed += -iz * 34 * dt;
@@ -317,6 +335,9 @@ export default function World({ onOpen, paused = false }) {
         cart.group.position.x += S.vel.x * dt;
         cart.group.position.z += S.vel.z * dt;
         shoreE = clampIsland(cart.group.position, S.vel);
+        if (S.respawnT <= 0) {
+          cart.group.position.y = groundHeight(cart.group.position.x, cart.group.position.z);
+        }
         cartState.speed = Math.hypot(S.vel.x, S.vel.z) * Math.sign(cartState.speed || 1);
         cart.group.rotation.y = cartState.heading;
         S.yawTarget = cartState.heading;
@@ -330,7 +351,8 @@ export default function World({ onOpen, paused = false }) {
         beginRespawn(pos);
       }
       if (S.respawnT > 0) {
-        S.respawnT -= dt;
+        // wall-clock, not sim time — the countdown must not stretch on slow GPUs
+        S.respawnT -= Math.min(real, 0.6);
         const vehicle = S.mode === 'cart' ? cart.group : player;
         vehicle.position.y = Math.max(-1.7, vehicle.position.y - dt * 1.1);
         const count = clamp(Math.ceil(S.respawnT), 1, 3);
@@ -413,6 +435,7 @@ export default function World({ onOpen, paused = false }) {
         pos,
         vel: S.vel,
         mode: S.mode,
+        air: S.airY,
         active: S.activeId,
         hover: S.hoverId,
         discovered: S.discovered,
@@ -437,6 +460,15 @@ export default function World({ onOpen, paused = false }) {
             key: `cones-${ev.downed}`,
             title: `Slalom — ${ev.downed}/${ev.total} cones`,
             text: 'Flatten every cone with the cart.',
+          });
+        } else if (ev.type === 'shot' && S.mode === 'ball') {
+          S.vel.set(ev.dx * ev.power, 0, ev.dz * ev.power);
+          S.airVy = ev.vy;
+          S.airY = 0.05;
+          pushToast({
+            key: `fore-${Math.round(clock * 1000)}`,
+            title: 'FORE!',
+            text: 'A member teed you off toward Sakrit Kafle.',
           });
         } else if (ev.type === 'npc') {
           pushToast({

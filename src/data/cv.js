@@ -332,7 +332,7 @@ export const COURSE_FLAGS = [
     kind: 'home',
     x: 0,
     z: 12,
-    label: 'Profile',
+    label: 'Sakrit Kafle',
     kicker: 'CLUBHOUSE',
     study: nodeStudy('home'),
   },

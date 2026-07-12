@@ -52,7 +52,7 @@ const noise2 = (x, z) => {
 
 /* the island profile: flat playing field, grassy lip, then under the sea */
 const ellipseNorm = (x, z) => Math.hypot(x / (ISLAND.rx + 8), z / (ISLAND.rz + 8));
-const groundHeight = (x, z) => {
+export const groundHeight = (x, z) => {
   const e = ellipseNorm(x, z);
   const lip = smoothstep(0.72, 0.95, e) * (noise2(x * 0.05, z * 0.05) * 2.2 + 0.4);
   const drop = smoothstep(1.0, 1.22, e) * -6.5;
@@ -454,11 +454,11 @@ function makeFlagNode(node, gallery) {
   g.add(flag);
 
   const holo = new THREE.Group();
-  holo.position.y = 7.3;
+  holo.position.y = 8.4;
   holo.visible = false;
 
   const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.16, 0.85, 2.6, 20, 1, true),
+    new THREE.CylinderGeometry(0.18, 1, 3.6, 20, 1, true),
     new THREE.MeshBasicMaterial({
       color: 0x67e8f9,
       transparent: true,
@@ -468,7 +468,7 @@ function makeFlagNode(node, gallery) {
       side: THREE.DoubleSide,
     }),
   );
-  beam.position.y = -2.5;
+  beam.position.y = -3.1;
   holo.add(beam);
 
   const galleryEntry = gallery.find(
@@ -477,7 +477,7 @@ function makeFlagNode(node, gallery) {
       e.project.toLowerCase() === node.kicker.toLowerCase(),
   );
   const panel = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.2, 3.42),
+    new THREE.PlaneGeometry(6.8, 4.47),
     new THREE.MeshBasicMaterial({
       map: flagHoloTexture(node, galleryEntry),
       transparent: true,
@@ -512,23 +512,24 @@ function makeRouteHolo(h) {
   const g = new THREE.Group();
   g.position.set(h.x, 0, h.z);
 
-  const pedestal = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.65, 0.5, 10),
-    new THREE.MeshStandardMaterial({ color: 0x223344, roughness: 0.5, metalness: 0.5 }),
+  // a golf yardage-marker post, not a sci-fi pedestal
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.11, 1.15, 8),
+    new THREE.MeshStandardMaterial({ color: 0xf5f7f4, roughness: 0.45, metalness: 0.2 }),
   );
-  pedestal.position.y = 0.25;
-  pedestal.castShadow = true;
-  g.add(pedestal);
+  post.position.y = 0.57;
+  post.castShadow = true;
+  g.add(post);
 
-  const lens = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 0.2, 0.1, 12),
-    new THREE.MeshBasicMaterial({ color: accent }),
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.17, 12, 10),
+    new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.55, roughness: 0.4 }),
   );
-  lens.position.y = 0.55;
-  g.add(lens);
+  cap.position.y = 1.22;
+  g.add(cap);
 
   const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.3, 1.3, 4.2, 18, 1, true),
+    new THREE.CylinderGeometry(0.35, 1.7, 5.6, 18, 1, true),
     new THREE.MeshBasicMaterial({
       color: accent,
       transparent: true,
@@ -538,11 +539,11 @@ function makeRouteHolo(h) {
       side: THREE.DoubleSide,
     }),
   );
-  beam.position.y = 2.6;
+  beam.position.y = 3.6;
   g.add(beam);
 
   const panel = new THREE.Mesh(
-    new THREE.PlaneGeometry(7, 3.22),
+    new THREE.PlaneGeometry(9.4, 4.32),
     new THREE.MeshBasicMaterial({
       map: routeHoloTexture(h, cssColor(accent)),
       transparent: true,
@@ -551,10 +552,47 @@ function makeRouteHolo(h) {
       depthWrite: false,
     }),
   );
-  panel.position.y = 5.2;
+  panel.position.y = 6.6;
   g.add(panel);
 
   return { ...h, group: g, beam, panel, base: new THREE.Vector3(h.x, 0, h.z), open: false, muted: false, t: 0 };
+}
+
+/** A golfer who tees the player back toward the Sakrit Kafle flag. */
+function makeGolfer(seed) {
+  const w = makeWalker(seed + 7);
+  const g = w.group;
+
+  // cap
+  const cap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.19, 0.19, 0.09, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.7 }),
+  );
+  cap.position.y = 1.47;
+  g.add(cap);
+
+  // swing arm: right arm + club pivot at the shoulder
+  const swing = new THREE.Group();
+  swing.position.set(0.29, 1.12, 0);
+  w.armR.position.set(0, -0.22, 0);
+  g.remove(w.armR);
+  swing.add(w.armR);
+
+  const club = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 1.15, 6),
+    new THREE.MeshStandardMaterial({ color: 0xb9c2c6, roughness: 0.35, metalness: 0.6 }),
+  );
+  club.position.set(0, -0.9, 0.1);
+  club.rotation.x = 0.22;
+  swing.add(club);
+  const headMat = new THREE.MeshStandardMaterial({ color: 0x30383f, roughness: 0.4, metalness: 0.5 });
+  const clubHead = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.24), headMat);
+  clubHead.position.set(0, -1.46, 0.22);
+  swing.add(clubHead);
+  g.add(swing);
+
+  swing.rotation.x = -0.45; // resting address pose
+  return { group: g, swing, legL: w.legL, legR: w.legR, armL: w.armL };
 }
 
 function makeBench(x, z, yaw) {
@@ -624,9 +662,7 @@ function makeGate(x, z, yaw, accent) {
 }
 
 /** Paved paver ribbon along a closed curve, for the park walkway. */
-function makePath(curve) {
-  const N = 150;
-  const half = 1.05;
+function makePath(curve, half = 1.05, N = 150) {
   const pos = [];
   const cols = [];
   const idx = [];
@@ -636,7 +672,10 @@ function makePath(curve) {
     const tan = curve.getTangentAt(t);
     const nx = -tan.z;
     const nz = tan.x;
-    pos.push(p.x + nx * half, 0.06, p.z + nz * half, p.x - nx * half, 0.06, p.z - nz * half);
+    // the ribbon drapes over the terrain, so a perimeter walk rides the lip
+    const yl = groundHeight(p.x + nx * half, p.z + nz * half) + 0.07;
+    const yr = groundHeight(p.x - nx * half, p.z - nz * half) + 0.07;
+    pos.push(p.x + nx * half, yl, p.z + nz * half, p.x - nx * half, yr, p.z - nz * half);
     // darker seams every few segments read as paver joints
     const seam = i % 5 === 0 ? 0.78 : 1;
     const c = 0.72 * seam;
@@ -847,7 +886,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   ];
   for (let i = 0; i < 46; i++) {
     const ang = hash2(i, 1) * Math.PI * 2;
-    const e = 0.55 + hash2(i, 2) * 0.34;
+    const e = 0.52 + hash2(i, 2) * 0.28; // inside the perimeter walkway
     const x = Math.cos(ang) * e * ISLAND.rx;
     const z = Math.sin(ang) * e * ISLAND.rz;
     if (keepOut.some((k) => Math.hypot(k.x - x, k.z - z) < 8)) continue;
@@ -922,13 +961,23 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   );
   scene.add(makePath(walkCurve));
 
-  const walkers = [0, 1, 2, 3].map((i) => {
+  /* proper paved promenade around the whole course perimeter */
+  const rimPts = [];
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2;
+    rimPts.push(new THREE.Vector3(Math.cos(a) * ISLAND.rx * 0.88, 0, Math.sin(a) * ISLAND.rz * 0.88));
+  }
+  const rimCurve = new THREE.CatmullRomCurve3(rimPts, true);
+  scene.add(makePath(rimCurve, 1.5, 320));
+
+  const makeStroller = (i, curve, count) => {
     const w = makeWalker(i);
     scene.add(w.group);
     return {
       ...w,
-      t: i / 4 + hash2(i, 9) * 0.08,
-      speed: 0.0115 + hash2(i, 4) * 0.004,
+      curve,
+      t: i / count + hash2(i, 9) * 0.05,
+      speed: (curve === walkCurve ? 0.0115 : 0.0035) + hash2(i, 4) * 0.003,
       state: 'walk', // walk | rag | rise
       vel: new THREE.Vector2(),
       ragT: 0,
@@ -936,7 +985,11 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       fallSign: 1,
       phase: hash2(i, 6) * Math.PI * 2,
     };
-  });
+  };
+  const walkers = [
+    ...[0, 1, 2, 3].map((i) => makeStroller(i, walkCurve, 4)),
+    ...[4, 5, 6].map((i) => makeStroller(i, rimCurve, 3)),
+  ];
   let npcToastDone = false;
 
   /* crate pyramid — only the CART can smash it */
@@ -1084,8 +1137,23 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   const holoObjs = holos.map((h) => {
     const obj = makeRouteHolo(h);
     scene.add(obj.group);
-    addStatic(h.x, h.z, 0.75);
+    addStatic(h.x, h.z, 0.35);
     return obj;
+  });
+
+  /* golfers — roll up to one as the ball and they tee you back to Sakrit Kafle */
+  const homeBase = byId.profile.base;
+  const golfers = [
+    [-30, -28],
+    [38, 8],
+    [-12, 38],
+  ].map(([gx, gz], i) => {
+    const g = makeGolfer(i);
+    g.group.position.set(gx, groundHeight(gx, gz), gz);
+    g.group.rotation.y = hash2(gx, gz) * Math.PI * 2;
+    scene.add(g.group);
+    addStatic(gx, gz, 0.001); // presence only; the swing does the pushing
+    return { ...g, x: gx, z: gz, state: 'idle', swingT: 0, cooldown: 0, fired: false };
   });
 
   /* cart paths */
@@ -1283,6 +1351,8 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       if (sp < 0.01) continue;
       b.group.position.x += b.vel.x * dt;
       b.group.position.z += b.vel.y * dt;
+      // knocked props ride the terrain instead of clipping under the lip
+      b.group.position.y = groundHeight(b.group.position.x, b.group.position.z);
       b.group.rotation.y += b.spin * dt;
       if ((b.kind === 'pin' || b.kind === 'cone') && sp > 2)
         b.group.rotation.z = Math.min(Math.PI / 2.2, b.group.rotation.z + sp * dt * 0.9);
@@ -1319,16 +1389,62 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       cart.wheels.forEach((w) => (w.rotation.x += cartState.speed * dt * 2.6));
     }
 
-    collide(st.pos, st.vel, st.mode === 'cart' ? 1.5 : 0.5, st.mode);
+    // a ball in flight sails over everything on the ground
+    if (!(st.mode === 'ball' && st.air > 0.8)) {
+      collide(st.pos, st.vel, st.mode === 'cart' ? 1.5 : 0.5, st.mode);
+    }
     stepDynamics(dt);
+
+    /* golfers: face an approaching ball, swing, and launch it home */
+    for (const gf of golfers) {
+      gf.cooldown = Math.max(0, gf.cooldown - dt);
+      const d = Math.hypot(gf.x - st.pos.x, gf.z - st.pos.z);
+
+      if (d < 9) {
+        gf.group.rotation.y = Math.atan2(st.pos.x - gf.x, st.pos.z - gf.z);
+      }
+
+      if (gf.state === 'idle') {
+        if (!calm) gf.swing.rotation.x = -0.45 + Math.sin(clock * 1.3 + gf.x) * 0.05;
+        if (st.mode === 'ball' && st.air < 0.2 && d < 2.8 && gf.cooldown <= 0) {
+          gf.state = 'swing';
+          gf.swingT = 0;
+          gf.fired = false;
+        }
+      } else {
+        gf.swingT += dt;
+        const t = gf.swingT;
+        if (t < 0.3) {
+          gf.swing.rotation.x = -0.45 - (t / 0.3) * 2.1; // backswing
+        } else if (t < 0.42) {
+          gf.swing.rotation.x = -2.55 + ((t - 0.3) / 0.12) * 3.3; // strike
+          if (!gf.fired && t > 0.36) {
+            gf.fired = true;
+            const dx = homeBase.x - st.pos.x;
+            const dz = homeBase.z - st.pos.z;
+            const dist = Math.hypot(dx, dz) || 1;
+            const vy = 15;
+            const flight = (2 * vy) / 30;
+            const power = Math.min(46, Math.max(18, (dist / flight) * 1.4));
+            events.push({ type: 'shot', dx: dx / dist, dz: dz / dist, power, vy });
+          }
+        } else if (t < 1.3) {
+          gf.swing.rotation.x = 0.75 - ((t - 0.42) / 0.88) * 1.2; // follow through
+        } else {
+          gf.swing.rotation.x = -0.45;
+          gf.state = 'idle';
+          gf.cooldown = 3.5;
+        }
+      }
+    }
 
     /* park visitors */
     for (const w of walkers) {
       if (w.state === 'walk') {
         if (!calm) w.t = (w.t + w.speed * dt) % 1;
-        const p = walkCurve.getPointAt(w.t);
-        const tan = walkCurve.getTangentAt(w.t);
-        w.group.position.set(p.x, 0, p.z);
+        const p = w.curve.getPointAt(w.t);
+        const tan = w.curve.getTangentAt(w.t);
+        w.group.position.set(p.x, groundHeight(p.x, p.z), p.z);
         w.group.rotation.set(0, Math.atan2(tan.x, tan.z), 0);
         const ph = clock * 7 + w.phase;
         const swing = calm ? 0 : Math.sin(ph) * 0.65;
@@ -1340,6 +1456,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         w.ragT += dt;
         w.group.position.x += w.vel.x * dt;
         w.group.position.z += w.vel.y * dt;
+        w.group.position.y = groundHeight(w.group.position.x, w.group.position.z);
         const damp = Math.exp(-2.2 * dt);
         w.vel.x *= damp;
         w.vel.y *= damp;
@@ -1364,8 +1481,8 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         w.legR.rotation.x *= 1 - ease;
         w.armL.rotation.x *= 1 - ease;
         w.armR.rotation.x *= 1 - ease;
-        const home = walkCurve.getPointAt(w.t);
-        w.group.position.lerp(new THREE.Vector3(home.x, 0, home.z), ease * 0.12);
+        const home = w.curve.getPointAt(w.t);
+        w.group.position.lerp(new THREE.Vector3(home.x, groundHeight(home.x, home.z), home.z), ease * 0.12);
         if (k >= 1) w.state = 'walk';
       }
     }
@@ -1451,7 +1568,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         o.holo.scale.setScalar((0.05 + 0.95 * ease) * holoBoost);
         o.panel.material.opacity = 0.96 * ease;
         o.beam.material.opacity = 0.2 * ease;
-        if (!calm) o.holo.position.y = 7.3 + Math.sin(clock * 1.6) * 0.07;
+        if (!calm) o.holo.position.y = 8.4 + Math.sin(clock * 1.6) * 0.07;
         const dx = camera.position.x - o.group.position.x;
         const dz = camera.position.z - o.group.position.z;
         o.holo.rotation.y = Math.atan2(dx, dz);
@@ -1472,7 +1589,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         h.panel.material.opacity = 0.95 * ease;
         h.beam.material.opacity = 0.14 * ease;
         h.panel.scale.setScalar((0.1 + 0.9 * ease) * holoBoost);
-        if (!calm) h.panel.position.y = 5.2 + Math.sin(clock * 1.3 + h.base.x) * 0.09;
+        if (!calm) h.panel.position.y = 6.6 + Math.sin(clock * 1.3 + h.base.x) * 0.09;
         const dx = camera.position.x - h.base.x;
         const dz = camera.position.z - h.base.z;
         h.panel.rotation.y = Math.atan2(dx, dz);
