@@ -2,21 +2,21 @@ import * as THREE from 'three';
 
 /**
  * A golf-course island that IS the CV: each flag is a CV section, large
- * holograms line the routes with the fine print, and the course games
+ * holograms line the routes with the fine print, and golf-native games
  * unlock facts. Plain three.js, driven imperatively; React owns the HUD.
  *
  * World axes: X right, Z toward the viewer, Y up.
  */
 
-export const NEAR = 4.6; // world units — flag becomes inspectable
+export const NEAR = 4.6;
 export const DISCOVER = 5.6;
 export const HOME_R = 4.2;
 export const LEFT_HOME = HOME_R + 4;
-export const HOLO_R = 9; // route holograms open inside this radius
-export const CART_R = 4; // "press I" radius around the cart
-export const ISLAND = { rx: 72, rz: 56 }; // playable shore ellipse
-export const SHORE_E = 1.045; // beyond this you're in the water -> splash + respawn
-export const MAX_E = 1.3; // absolute hard wall out in the sea
+export const HOLO_R = 9;
+export const CART_R = 4;
+export const ISLAND = { rx: 72, rz: 56 };
+export const SHORE_E = 1.045;
+export const MAX_E = 1.3;
 
 export const KIND_COLOR = {
   home: 0x4ade80,
@@ -50,7 +50,6 @@ const noise2 = (x, z) => {
   return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
 };
 
-/* the island profile: flat playing field, grassy lip, then under the sea */
 const ellipseNorm = (x, z) => Math.hypot(x / (ISLAND.rx + 8), z / (ISLAND.rz + 8));
 export const groundHeight = (x, z) => {
   const e = ellipseNorm(x, z);
@@ -58,6 +57,92 @@ export const groundHeight = (x, z) => {
   const drop = smoothstep(1.0, 1.22, e) * -6.5;
   return lip + drop;
 };
+
+/* ------------------------------------------------------------------ */
+/* procedural textures                                                 */
+/* ------------------------------------------------------------------ */
+
+/** Neutral luminance detail (blade strokes) — multiplied by vertex colors,
+ *  so the same map reads as grass on the green and grain on the sand. */
+function detailTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#a6a6a2';
+  g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 2100; i++) {
+    const x = hash2(i, 1) * 256;
+    const y = hash2(i, 2) * 256;
+    const lum = 128 + Math.floor((hash2(i, 3) - 0.5) * 88);
+    g.strokeStyle = `rgb(${lum - 6},${lum},${lum - 10})`;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + (hash2(i, 4) - 0.5) * 2.4, y - 2 - hash2(i, 5) * 3.4);
+    g.stroke();
+  }
+  for (let i = 0; i < 240; i++) {
+    const lum = 96 + Math.floor(hash2(i, 6) * 46);
+    g.fillStyle = `rgb(${lum},${lum + 4},${lum - 4})`;
+    g.fillRect(hash2(i, 7) * 256, hash2(i, 8) * 256, 1.6, 1.6);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(90, 90);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Raked sand for the bunkers. */
+function sandTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#dcc493';
+  g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 700; i++) {
+    g.fillStyle = hash2(i, 1) > 0.5 ? '#cdb47f' : '#eadbb0';
+    g.fillRect(hash2(i, 2) * 128, hash2(i, 3) * 128, 1.3, 1.3);
+  }
+  g.strokeStyle = 'rgba(160, 132, 84, 0.35)';
+  g.lineWidth = 1.4;
+  for (let i = 0; i < 7; i++) {
+    g.beginPath();
+    g.arc(64, 64, 12 + i * 9, hash2(i, 4) * 2, hash2(i, 4) * 2 + 2.4);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(2.2, 2.2);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Alpha-tested grass-blade sprite for the instanced tufts. */
+function bladeTexture() {
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 64, 64);
+  for (let i = 0; i < 7; i++) {
+    const bx = 6 + i * 8 + (hash2(i, 1) - 0.5) * 5;
+    const lean = (hash2(i, 2) - 0.5) * 14;
+    const h = 34 + hash2(i, 3) * 26;
+    const grad = g.createLinearGradient(0, 64, 0, 64 - h);
+    grad.addColorStop(0, '#3f7c30');
+    grad.addColorStop(1, '#8fd45f');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(bx - 2.4, 64);
+    g.quadraticCurveTo(bx - 1 + lean * 0.4, 64 - h * 0.6, bx + lean, 64 - h);
+    g.quadraticCurveTo(bx + 1 + lean * 0.4, 64 - h * 0.6, bx + 2.4, 64);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 /* ------------------------------------------------------------------ */
 /* environment                                                         */
@@ -98,7 +183,7 @@ function makeSky() {
   return new THREE.Mesh(geo, mat);
 }
 
-function makeTerrain() {
+function makeTerrain(detail) {
   const SIZE = 420;
   const SEG = 150;
   const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
@@ -121,9 +206,9 @@ function makeTerrain() {
     const e = ellipseNorm(x, z);
     const stripe = Math.floor((x + 1000) / 5) % 2 === 0 ? fairA : fairB;
     tmp.copy(stripe).lerp(rough, smoothstep(0.55, 0.8, e));
-    tmp.lerp(sand, smoothstep(0.93, 1.0, e)); // beach ring
-    tmp.lerp(seabed, smoothstep(1.04, 1.2, e)); // under the water
-    const mottle = 0.92 + noise2(x * 0.6, z * 0.6) * 0.16;
+    tmp.lerp(sand, smoothstep(0.93, 1.0, e));
+    tmp.lerp(seabed, smoothstep(1.04, 1.2, e));
+    const mottle = 0.94 + noise2(x * 0.6, z * 0.6) * 0.13;
     colors[i * 3] = tmp.r * mottle;
     colors[i * 3 + 1] = tmp.g * mottle;
     colors[i * 3 + 2] = tmp.b * mottle;
@@ -133,9 +218,89 @@ function makeTerrain() {
 
   const mesh = new THREE.Mesh(
     geo,
-    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 }),
+    new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      map: detail,
+      bumpMap: detail,
+      bumpScale: 0.4,
+      roughness: 0.96,
+      metalness: 0,
+    }),
   );
   mesh.receiveShadow = true;
+  return mesh;
+}
+
+/** Thousands of swaying grass tufts over the playing field. */
+function makeGrassTufts(uTime) {
+  // two crossed quads, hand-built
+  const positions = [];
+  const uvs = [];
+  const normals = [];
+  const index = [];
+  const quad = (rot) => {
+    const c = Math.cos(rot);
+    const s = Math.sin(rot);
+    const base = positions.length / 3;
+    const w = 0.42;
+    positions.push(-w * c, 0, -w * s, w * c, 0, w * s, w * c, 0.55, w * s, -w * c, 0.55, -w * s);
+    uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+    for (let i = 0; i < 4; i++) normals.push(0, 0, 1);
+    index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  };
+  quad(0);
+  quad(Math.PI / 2);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setIndex(index);
+
+  const mat = new THREE.MeshStandardMaterial({
+    map: bladeTexture(),
+    alphaTest: 0.45,
+    side: THREE.DoubleSide,
+    roughness: 1,
+    metalness: 0,
+  });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = uTime;
+    shader.vertexShader = `uniform float uTime;\n${shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+       float wx = instanceMatrix[3].x;
+       float wz = instanceMatrix[3].z;
+       transformed.x += sin(uTime * 1.5 + wx * 0.7 + wz * 0.53) * transformed.y * 0.4;`,
+    )}`;
+  };
+
+  const COUNT = 2400;
+  const mesh = new THREE.InstancedMesh(geo, mat, COUNT);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  const sc = new THREE.Vector3();
+  const colA = new THREE.Color(0x69aa4b);
+  const colB = new THREE.Color(0x92cf62);
+  const col = new THREE.Color();
+  let placed = 0;
+  let i = 0;
+  while (placed < COUNT && i < COUNT * 4) {
+    i++;
+    const x = (hash2(i, 11) - 0.5) * 2 * ISLAND.rx * 0.95;
+    const z = (hash2(i, 12) - 0.5) * 2 * ISLAND.rz * 0.95;
+    if (ellipseNorm(x, z) > 0.9) continue;
+    q.setFromAxisAngle(up, hash2(i, 13) * Math.PI * 2);
+    const s = 0.75 + hash2(i, 14) * 0.85;
+    sc.set(s, s * (0.8 + hash2(i, 15) * 0.6), s);
+    m.compose(new THREE.Vector3(x, groundHeight(x, z), z), q, sc);
+    mesh.setMatrixAt(placed, m);
+    mesh.setColorAt(placed, col.copy(colA).lerp(colB, hash2(i, 16)));
+    placed++;
+  }
+  mesh.count = placed;
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   return mesh;
 }
 
@@ -245,7 +410,7 @@ function makePollen() {
 }
 
 /* ------------------------------------------------------------------ */
-/* canvas textures                                                     */
+/* canvas panel textures                                               */
 /* ------------------------------------------------------------------ */
 
 function flagTexture(node, accentCss) {
@@ -368,7 +533,6 @@ function flagHoloTexture(node, galleryEntry) {
   return t;
 }
 
-/** Route hologram panel — pure text, wider than the flag panels. */
 function routeHoloTexture(holo, accentCss) {
   const c = document.createElement('canvas');
   c.width = 1000;
@@ -406,15 +570,297 @@ function routeHoloTexture(holo, accentCss) {
   return t;
 }
 
+function signTexture(text) {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 96;
+  const g = c.getContext('2d');
+  g.fillStyle = '#7c5a38';
+  g.fillRect(0, 0, 512, 96);
+  g.strokeStyle = '#5d4128';
+  g.lineWidth = 8;
+  g.strokeRect(4, 4, 504, 88);
+  g.fillStyle = '#f7f0df';
+  g.font = '700 44px Inter, Arial, sans-serif';
+  g.textAlign = 'center';
+  g.fillText(`${text}  →`, 256, 62);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 /* ------------------------------------------------------------------ */
 /* props                                                               */
 /* ------------------------------------------------------------------ */
+
+function makePath(curve, half = 1.05, N = 150) {
+  const pos = [];
+  const cols = [];
+  const idx = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const p = curve.getPointAt(t);
+    const tan = curve.getTangentAt(t);
+    const nx = -tan.z;
+    const nz = tan.x;
+    const yl = groundHeight(p.x + nx * half, p.z + nz * half) + 0.07;
+    const yr = groundHeight(p.x - nx * half, p.z - nz * half) + 0.07;
+    pos.push(p.x + nx * half, yl, p.z + nz * half, p.x - nx * half, yr, p.z - nz * half);
+    const seam = i % 5 === 0 ? 0.78 : 1;
+    const c = 0.72 * seam;
+    cols.push(c, c * 0.985, c * 0.93, c, c * 0.985, c * 0.93);
+  }
+  for (let i = 0; i < N; i++) {
+    const a = i * 2;
+    idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function makeWalker(seed) {
+  const g = new THREE.Group();
+  const shirtColor = [0xe86f5a, 0x4f8ac9, 0xd9a441, 0x7a5fb8, 0x3f8f6a, 0xc95f8e][seed % 6];
+  const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 });
+  const skin = mat(0xd9a06b);
+  const pants = mat(0x33415c);
+  const shirt = mat(shirtColor);
+
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.16), pants);
+  legL.position.set(-0.11, 0.28, 0);
+  const legR = legL.clone();
+  legR.position.x = 0.11;
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.26), shirt);
+  torso.position.y = 0.86;
+
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), shirt);
+  armL.position.set(-0.29, 0.9, 0);
+  const armR = armL.clone();
+  armR.position.x = 0.29;
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), skin);
+  head.position.y = 1.34;
+
+  for (const part of [legL, legR, torso, armL, armR, head]) {
+    part.castShadow = true;
+    g.add(part);
+  }
+  g.scale.setScalar(0.92 + hash2(seed, 3) * 0.14);
+  return { group: g, legL, legR, armL, armR };
+}
+
+function makeGolfer(seed) {
+  const w = makeWalker(seed + 7);
+  const g = w.group;
+
+  const cap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.19, 0.19, 0.09, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.7 }),
+  );
+  cap.position.y = 1.47;
+  g.add(cap);
+
+  const swing = new THREE.Group();
+  swing.position.set(0.29, 1.12, 0);
+  w.armR.position.set(0, -0.22, 0);
+  g.remove(w.armR);
+  swing.add(w.armR);
+
+  const club = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 1.15, 6),
+    new THREE.MeshStandardMaterial({ color: 0xb9c2c6, roughness: 0.35, metalness: 0.6 }),
+  );
+  club.position.set(0, -0.9, 0.1);
+  club.rotation.x = 0.22;
+  swing.add(club);
+  const clubHead = new THREE.Mesh(
+    new THREE.BoxGeometry(0.09, 0.09, 0.24),
+    new THREE.MeshStandardMaterial({ color: 0x30383f, roughness: 0.4, metalness: 0.5 }),
+  );
+  clubHead.position.set(0, -1.46, 0.22);
+  swing.add(clubHead);
+  g.add(swing);
+
+  // a tee'd practice ball at their feet
+  const teeBall = new THREE.Mesh(
+    new THREE.SphereGeometry(0.09, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.4 }),
+  );
+  teeBall.position.set(0.42, 0.09, 0.34);
+  g.add(teeBall);
+
+  swing.rotation.x = -0.45;
+  return { group: g, swing, legL: w.legL, legR: w.legR, armL: w.armL };
+}
+
+/** A golf bag with clubs poking out. Clubs can be ejected as loose sticks. */
+function makeGolfBag(seed) {
+  const g = new THREE.Group();
+  const color = [0xc23b3b, 0x2f5d8a, 0x3a3f45, 0x946037, 0x4a7350][seed % 5];
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.26, 0.3, 1.05, 12),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.8 }),
+  );
+  body.position.y = 0.55;
+  body.rotation.z = 0.24;
+  body.castShadow = true;
+  g.add(body);
+
+  const pocket = new THREE.Mesh(
+    new THREE.BoxGeometry(0.2, 0.34, 0.12),
+    new THREE.MeshStandardMaterial({ color: new THREE.Color(color).offsetHSL(0, 0, -0.08), roughness: 0.85 }),
+  );
+  pocket.position.set(0.14, 0.42, 0.24);
+  pocket.rotation.z = 0.24;
+  g.add(pocket);
+
+  const clubs = [];
+  const shaftMat = new THREE.MeshStandardMaterial({ color: 0xb9c2c6, roughness: 0.3, metalness: 0.65 });
+  const headMat = new THREE.MeshStandardMaterial({ color: 0x2c333a, roughness: 0.4, metalness: 0.5 });
+  for (let i = 0; i < 3; i++) {
+    const club = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 6), shaftMat);
+    shaft.position.y = 0.5;
+    club.add(shaft);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.16), headMat);
+    head.position.set(0, 1.02, 0.05);
+    club.add(head);
+    club.position.set(0.3 + (hash2(seed, i) - 0.5) * 0.16, 0.62, (hash2(seed, i + 4) - 0.5) * 0.2);
+    club.rotation.z = 0.32 + (hash2(seed, i + 8) - 0.5) * 0.25;
+    club.rotation.x = (hash2(seed, i + 12) - 0.5) * 0.3;
+    g.add(club);
+    clubs.push(club);
+  }
+  return { group: g, clubs };
+}
+
+function makeTeeGate(x, z, yaw, accent) {
+  const g = new THREE.Group();
+  const postMat = new THREE.MeshStandardMaterial({ color: 0xf5f7f4, roughness: 0.5 });
+  const markMat = new THREE.MeshStandardMaterial({
+    color: accent,
+    emissive: accent,
+    emissiveIntensity: 0.35,
+    roughness: 0.4,
+  });
+  for (const sx of [-1.8, 1.8]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.62, 8), postMat);
+    post.position.set(sx, 0.31, 0);
+    post.castShadow = true;
+    g.add(post);
+    const ballMark = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), markMat);
+    ballMark.position.set(sx, 0.72, 0);
+    g.add(ballMark);
+  }
+  g.position.set(x, groundHeight(x, z), z);
+  g.rotation.y = yaw;
+  return g;
+}
+
+function makeBench(x, z, yaw) {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0x9a6b42, roughness: 0.9 });
+  const iron = new THREE.MeshStandardMaterial({ color: 0x30383f, roughness: 0.6, metalness: 0.4 });
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.7), wood);
+  seat.position.y = 0.55;
+  seat.castShadow = true;
+  g.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 0.1), wood);
+  back.position.set(0, 1, -0.3);
+  back.rotation.x = -0.15;
+  back.castShadow = true;
+  g.add(back);
+  for (const sx of [-0.9, 0.9]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.6), iron);
+    leg.position.set(sx, 0.27, 0);
+    g.add(leg);
+  }
+  g.position.set(x, groundHeight(x, z), z);
+  g.rotation.y = yaw;
+  return g;
+}
+
+function makeCone(x, z) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.ConeGeometry(0.32, 0.85, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf07d2d, roughness: 0.7 }),
+  );
+  body.position.y = 0.42;
+  body.castShadow = true;
+  g.add(body);
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.26, 0.14, 12),
+    new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.6 }),
+  );
+  band.position.y = 0.42;
+  g.add(band);
+  g.position.set(x, groundHeight(x, z), z);
+  return g;
+}
+
+function makeRouteHolo(h) {
+  const accent = KIND_COLOR[h.kind] ?? KIND_COLOR.home;
+  const g = new THREE.Group();
+  g.position.set(h.x, groundHeight(h.x, h.z), h.z);
+
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.11, 1.15, 8),
+    new THREE.MeshStandardMaterial({ color: 0xf5f7f4, roughness: 0.45, metalness: 0.2 }),
+  );
+  post.position.y = 0.57;
+  post.castShadow = true;
+  g.add(post);
+
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.17, 12, 10),
+    new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.55, roughness: 0.4 }),
+  );
+  cap.position.y = 1.22;
+  g.add(cap);
+
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.35, 1.7, 5.6, 18, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: accent,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  beam.position.y = 3.6;
+  g.add(beam);
+
+  const panel = new THREE.Mesh(
+    new THREE.PlaneGeometry(9.4, 4.32),
+    new THREE.MeshBasicMaterial({
+      map: routeHoloTexture(h, cssColor(accent)),
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  panel.position.y = 6.6;
+  g.add(panel);
+
+  return { ...h, group: g, beam, panel, base: new THREE.Vector3(h.x, 0, h.z), open: false, muted: false, t: 0 };
+}
 
 function makeFlagNode(node, gallery) {
   const accent = KIND_COLOR[node.kind] ?? KIND_COLOR.home;
   const accentCss = cssColor(accent);
   const g = new THREE.Group();
-  g.position.set(node.x, 0, node.z);
+  g.position.set(node.x, groundHeight(node.x, node.z), node.z);
 
   const cup = new THREE.Mesh(new THREE.CircleGeometry(0.34, 24), new THREE.MeshBasicMaterial({ color: 0x101510 }));
   cup.rotation.x = -Math.PI / 2;
@@ -507,262 +953,6 @@ function makeFlagNode(node, gallery) {
   };
 }
 
-function makeRouteHolo(h) {
-  const accent = KIND_COLOR[h.kind] ?? KIND_COLOR.home;
-  const g = new THREE.Group();
-  g.position.set(h.x, 0, h.z);
-
-  // a golf yardage-marker post, not a sci-fi pedestal
-  const post = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.09, 0.11, 1.15, 8),
-    new THREE.MeshStandardMaterial({ color: 0xf5f7f4, roughness: 0.45, metalness: 0.2 }),
-  );
-  post.position.y = 0.57;
-  post.castShadow = true;
-  g.add(post);
-
-  const cap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.17, 12, 10),
-    new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.55, roughness: 0.4 }),
-  );
-  cap.position.y = 1.22;
-  g.add(cap);
-
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.35, 1.7, 5.6, 18, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: accent,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    }),
-  );
-  beam.position.y = 3.6;
-  g.add(beam);
-
-  const panel = new THREE.Mesh(
-    new THREE.PlaneGeometry(9.4, 4.32),
-    new THREE.MeshBasicMaterial({
-      map: routeHoloTexture(h, cssColor(accent)),
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    }),
-  );
-  panel.position.y = 6.6;
-  g.add(panel);
-
-  return { ...h, group: g, beam, panel, base: new THREE.Vector3(h.x, 0, h.z), open: false, muted: false, t: 0 };
-}
-
-/** A golfer who tees the player back toward the Sakrit Kafle flag. */
-function makeGolfer(seed) {
-  const w = makeWalker(seed + 7);
-  const g = w.group;
-
-  // cap
-  const cap = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.19, 0.19, 0.09, 12),
-    new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.7 }),
-  );
-  cap.position.y = 1.47;
-  g.add(cap);
-
-  // swing arm: right arm + club pivot at the shoulder
-  const swing = new THREE.Group();
-  swing.position.set(0.29, 1.12, 0);
-  w.armR.position.set(0, -0.22, 0);
-  g.remove(w.armR);
-  swing.add(w.armR);
-
-  const club = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.03, 0.03, 1.15, 6),
-    new THREE.MeshStandardMaterial({ color: 0xb9c2c6, roughness: 0.35, metalness: 0.6 }),
-  );
-  club.position.set(0, -0.9, 0.1);
-  club.rotation.x = 0.22;
-  swing.add(club);
-  const headMat = new THREE.MeshStandardMaterial({ color: 0x30383f, roughness: 0.4, metalness: 0.5 });
-  const clubHead = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.24), headMat);
-  clubHead.position.set(0, -1.46, 0.22);
-  swing.add(clubHead);
-  g.add(swing);
-
-  swing.rotation.x = -0.45; // resting address pose
-  return { group: g, swing, legL: w.legL, legR: w.legR, armL: w.armL };
-}
-
-function makeBench(x, z, yaw) {
-  const g = new THREE.Group();
-  const wood = new THREE.MeshStandardMaterial({ color: 0x9a6b42, roughness: 0.9 });
-  const iron = new THREE.MeshStandardMaterial({ color: 0x30383f, roughness: 0.6, metalness: 0.4 });
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.7), wood);
-  seat.position.y = 0.55;
-  seat.castShadow = true;
-  g.add(seat);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 0.1), wood);
-  back.position.set(0, 1, -0.3);
-  back.rotation.x = -0.15;
-  back.castShadow = true;
-  g.add(back);
-  for (const sx of [-0.9, 0.9]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.6), iron);
-    leg.position.set(sx, 0.27, 0);
-    g.add(leg);
-  }
-  g.position.set(x, 0, z);
-  g.rotation.y = yaw;
-  return g;
-}
-
-function makePin(x, z) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.16, 0.5, 4, 10),
-    new THREE.MeshStandardMaterial({ color: 0xf7f4ec, roughness: 0.5 }),
-  );
-  body.position.y = 0.45;
-  body.castShadow = true;
-  g.add(body);
-  const stripe = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.165, 0.165, 0.1, 10),
-    new THREE.MeshStandardMaterial({ color: 0xc93b3b, roughness: 0.5 }),
-  );
-  stripe.position.y = 0.62;
-  g.add(stripe);
-  g.position.set(x, 0, z);
-  return g;
-}
-
-function makeGate(x, z, yaw, accent) {
-  const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xf5f7f4, roughness: 0.5, metalness: 0.2 });
-  for (const sx of [-1.7, 1.7]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 2.6, 8), mat);
-    post.position.set(sx, 1.3, 0);
-    post.castShadow = true;
-    g.add(post);
-  }
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.5, 8), mat);
-  bar.rotation.z = Math.PI / 2;
-  bar.position.y = 2.55;
-  g.add(bar);
-  const banner = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.6, 0.5),
-    new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.75, side: THREE.DoubleSide }),
-  );
-  banner.position.y = 2.1;
-  g.add(banner);
-  g.position.set(x, 0, z);
-  g.rotation.y = yaw;
-  return g;
-}
-
-/** Paved paver ribbon along a closed curve, for the park walkway. */
-function makePath(curve, half = 1.05, N = 150) {
-  const pos = [];
-  const cols = [];
-  const idx = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const p = curve.getPointAt(t);
-    const tan = curve.getTangentAt(t);
-    const nx = -tan.z;
-    const nz = tan.x;
-    // the ribbon drapes over the terrain, so a perimeter walk rides the lip
-    const yl = groundHeight(p.x + nx * half, p.z + nz * half) + 0.07;
-    const yr = groundHeight(p.x - nx * half, p.z - nz * half) + 0.07;
-    pos.push(p.x + nx * half, yl, p.z + nz * half, p.x - nx * half, yr, p.z - nz * half);
-    // darker seams every few segments read as paver joints
-    const seam = i % 5 === 0 ? 0.78 : 1;
-    const c = 0.72 * seam;
-    cols.push(c, c * 0.985, c * 0.93, c, c * 0.985, c * 0.93);
-  }
-  for (let i = 0; i < N; i++) {
-    const a = i * 2;
-    idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
-  mesh.receiveShadow = true;
-  return mesh;
-}
-
-/** A low-poly park visitor who walks the path and ragdolls when hit. */
-function makeWalker(seed) {
-  const g = new THREE.Group();
-  const shirtColor = [0xe86f5a, 0x4f8ac9, 0xd9a441, 0x7a5fb8][seed % 4];
-  const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 });
-  const skin = mat(0xd9a06b);
-  const pants = mat(0x33415c);
-  const shirt = mat(shirtColor);
-
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.16), pants);
-  legL.position.set(-0.11, 0.28, 0);
-  const legR = legL.clone();
-  legR.position.x = 0.11;
-
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.26), shirt);
-  torso.position.y = 0.86;
-
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), shirt);
-  armL.position.set(-0.29, 0.9, 0);
-  const armR = armL.clone();
-  armR.position.x = 0.29;
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), skin);
-  head.position.y = 1.34;
-
-  for (const part of [legL, legR, torso, armL, armR, head]) {
-    part.castShadow = true;
-    g.add(part);
-  }
-  g.scale.setScalar(0.92 + hash2(seed, 3) * 0.14);
-  return { group: g, legL, legR, armL, armR };
-}
-
-function makeCone(x, z) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.ConeGeometry(0.32, 0.85, 12),
-    new THREE.MeshStandardMaterial({ color: 0xf07d2d, roughness: 0.7 }),
-  );
-  body.position.y = 0.42;
-  body.castShadow = true;
-  g.add(body);
-  const band = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.26, 0.14, 12),
-    new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.6 }),
-  );
-  band.position.y = 0.42;
-  g.add(band);
-  g.position.set(x, 0, z);
-  return g;
-}
-
-function makeCrate(size) {
-  const g = new THREE.Group();
-  const box = new THREE.Mesh(
-    new THREE.BoxGeometry(size, size, size),
-    new THREE.MeshStandardMaterial({ color: 0x8f6b43, roughness: 0.9 }),
-  );
-  box.castShadow = true;
-  g.add(box);
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(box.geometry),
-    new THREE.LineBasicMaterial({ color: 0x5d4128 }),
-  );
-  g.add(edges);
-  return g;
-}
-
 function makeCart() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
@@ -815,7 +1005,6 @@ function makeCart() {
     wheels.push(w);
   }
 
-  // little accent stripe
   const stripe = new THREE.Mesh(
     new THREE.BoxGeometry(1.52, 0.1, 0.5),
     new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.5 }),
@@ -824,6 +1013,33 @@ function makeCart() {
   g.add(stripe);
 
   return { group: g, wheels };
+}
+
+/** Direction signpost at the tee, pointing players into the CV. */
+function makeSignpost(x, z, arms) {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.12, 2.9, 8),
+    new THREE.MeshStandardMaterial({ color: 0x7c5a38, roughness: 0.9 }),
+  );
+  pole.position.y = 1.45;
+  pole.castShadow = true;
+  g.add(pole);
+
+  arms.forEach((arm, i) => {
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(1.85, 0.34, 0.06),
+      new THREE.MeshStandardMaterial({ map: signTexture(arm.text), roughness: 0.85 }),
+    );
+    const yaw = Math.atan2(arm.tx - x, arm.tz - z) - Math.PI / 2;
+    board.rotation.y = yaw;
+    board.position.set(Math.sin(yaw + Math.PI / 2) * 0.8, 2.5 - i * 0.44, Math.cos(yaw + Math.PI / 2) * 0.8);
+    board.castShadow = true;
+    g.add(board);
+  });
+
+  g.position.set(x, groundHeight(x, z), z);
+  return g;
 }
 
 /* ------------------------------------------------------------------ */
@@ -858,35 +1074,35 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   scene.add(sun);
 
   scene.add(makeSky());
-  scene.add(makeTerrain());
+  scene.add(makeTerrain(detailTexture()));
+  const grassTime = { value: 0 };
+  if (!calm) scene.add(makeGrassTufts(grassTime));
   const water = makeWater();
   scene.add(water);
   const pollen = makePollen();
   scene.add(pollen);
 
   /* physics registries */
-  const statics = []; // {x, z, r}
-  const dynamics = []; // {group, vel, r, spin, kind, factId?, woken}
-  const events = []; // drained by World each frame
-
+  const statics = [];
+  const dynamics = [];
+  const debris = []; // loose clubs, splinters — simple ballistic bodies
+  const events = [];
   const addStatic = (x, z, r) => statics.push({ x, z, r });
 
-  /* trees — scattered on the rough, kept away from flags, holograms and games */
+  /* trees */
   const keepOut = [
     ...flags,
     ...holos,
-    // park + walkway + cart games
     { x: 32, z: 44 },
     { x: 26, z: 38 },
     { x: 40, z: 46 },
-    { x: 46, z: 34 },
-    { x: 22, z: -8 },
     { x: 28, z: -16 },
-    { x: 34, z: -24 },
+    { x: 44, z: 40 },
+    { x: 4, z: 17 },
   ];
   for (let i = 0; i < 46; i++) {
     const ang = hash2(i, 1) * Math.PI * 2;
-    const e = 0.52 + hash2(i, 2) * 0.28; // inside the perimeter walkway
+    const e = 0.52 + hash2(i, 2) * 0.28;
     const x = Math.cos(ang) * e * ISLAND.rx;
     const z = Math.sin(ang) * e * ISLAND.rz;
     if (keepOut.some((k) => Math.hypot(k.x - x, k.z - z) < 8)) continue;
@@ -896,20 +1112,42 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
     addStatic(x, z, 1.1 * tree.scale.x);
   }
 
-  /* bunkers */
+  /* bunkers with raked sand */
+  const sandTex = sandTexture();
   for (const [bx, bz, br] of [[20, -12, 4], [-28, 10, 5], [9, 22, 3.2], [-14, 40, 4], [36, 34, 3.6]]) {
     const b = new THREE.Mesh(
       new THREE.CircleGeometry(br, 28),
-      new THREE.MeshStandardMaterial({ color: 0xdcc493, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ map: sandTex, roughness: 1 }),
     );
     b.rotation.x = -Math.PI / 2;
-    b.position.set(bx, 0.03, bz);
+    b.position.set(bx, groundHeight(bx, bz) + 0.03, bz);
     b.scale.y = 0.75;
     b.receiveShadow = true;
     scene.add(b);
   }
 
-  /* the park — benches you can crash, a lamp, flower dots */
+  /* park + walkway */
+  const walkCurve = new THREE.CatmullRomCurve3(
+    [
+      new THREE.Vector3(22, 0, 36),
+      new THREE.Vector3(31, 0, 32),
+      new THREE.Vector3(41, 0, 37),
+      new THREE.Vector3(45, 0, 46),
+      new THREE.Vector3(36, 0, 53),
+      new THREE.Vector3(25, 0, 50),
+    ],
+    true,
+  );
+  scene.add(makePath(walkCurve));
+
+  const rimPts = [];
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2;
+    rimPts.push(new THREE.Vector3(Math.cos(a) * ISLAND.rx * 0.88, 0, Math.sin(a) * ISLAND.rz * 0.88));
+  }
+  const rimCurve = new THREE.CatmullRomCurve3(rimPts, true);
+  scene.add(makePath(rimCurve, 1.5, 320));
+
   const PARK = { x: 32, z: 44 };
   for (const [bx, bz, yaw] of [
     [PARK.x - 3, PARK.z, 0.5],
@@ -925,15 +1163,9 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
     new THREE.CylinderGeometry(0.07, 0.1, 3.4, 8),
     new THREE.MeshStandardMaterial({ color: 0x30383f, roughness: 0.6, metalness: 0.4 }),
   );
-  lamp.position.set(PARK.x, 1.7, PARK.z - 4);
+  lamp.position.set(PARK.x, groundHeight(PARK.x, PARK.z - 4) + 1.7, PARK.z - 4);
   lamp.castShadow = true;
   scene.add(lamp);
-  const lampHead = new THREE.Mesh(
-    new THREE.SphereGeometry(0.28, 12, 10),
-    new THREE.MeshStandardMaterial({ color: 0xfff3c4, emissive: 0xffe9a0, emissiveIntensity: 0.5 }),
-  );
-  lampHead.position.set(PARK.x, 3.5, PARK.z - 4);
-  scene.add(lampHead);
   addStatic(PARK.x, PARK.z - 4, 0.35);
 
   for (let i = 0; i < 26; i++) {
@@ -943,42 +1175,21 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       new THREE.SphereGeometry(0.09, 6, 6),
       new THREE.MeshBasicMaterial({ color: [0xf472b6, 0xfbbf24, 0xffffff][i % 3] }),
     );
-    f.position.set(fx, 0.1, fz);
+    f.position.set(fx, groundHeight(fx, fz) + 0.1, fz);
     scene.add(f);
   }
 
-  /* paved walkway looping through the park, with people on it */
-  const walkCurve = new THREE.CatmullRomCurve3(
-    [
-      new THREE.Vector3(22, 0, 36),
-      new THREE.Vector3(31, 0, 32),
-      new THREE.Vector3(41, 0, 37),
-      new THREE.Vector3(45, 0, 46),
-      new THREE.Vector3(36, 0, 53),
-      new THREE.Vector3(25, 0, 50),
-    ],
-    true,
-  );
-  scene.add(makePath(walkCurve));
-
-  /* proper paved promenade around the whole course perimeter */
-  const rimPts = [];
-  for (let i = 0; i < 22; i++) {
-    const a = (i / 22) * Math.PI * 2;
-    rimPts.push(new THREE.Vector3(Math.cos(a) * ISLAND.rx * 0.88, 0, Math.sin(a) * ISLAND.rz * 0.88));
-  }
-  const rimCurve = new THREE.CatmullRomCurve3(rimPts, true);
-  scene.add(makePath(rimCurve, 1.5, 320));
-
-  const makeStroller = (i, curve, count) => {
+  /* NPCs: a few strollers + standing caddies. It's a golf course, not a mall. */
+  const makeStroller = (i, curve, count, home) => {
     const w = makeWalker(i);
     scene.add(w.group);
     return {
       ...w,
       curve,
-      t: i / count + hash2(i, 9) * 0.05,
+      home,
+      t: curve ? i / count + hash2(i, 9) * 0.05 : 0,
       speed: (curve === walkCurve ? 0.0115 : 0.0035) + hash2(i, 4) * 0.003,
-      state: 'walk', // walk | rag | rise
+      state: curve ? 'walk' : 'stand', // walk | stand | flee | return | rag | rise
       vel: new THREE.Vector2(),
       ragT: 0,
       riseT: 0,
@@ -987,63 +1198,71 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
     };
   };
   const walkers = [
-    ...[0, 1, 2, 3].map((i) => makeStroller(i, walkCurve, 4)),
-    ...[4, 5, 6].map((i) => makeStroller(i, rimCurve, 3)),
+    makeStroller(0, walkCurve, 2),
+    makeStroller(1, walkCurve, 2),
+    makeStroller(2, rimCurve, 2),
+    makeStroller(3, rimCurve, 2),
+    makeStroller(4, null, 1, { x: 30, z: -13 }), // caddy at the bag rack
+    makeStroller(5, null, 1, { x: 43, z: 42 }), // caddy at the park rack
   ];
+  for (const w of walkers) {
+    if (!w.curve) w.group.position.set(w.home.x, groundHeight(w.home.x, w.home.z), w.home.z);
+  }
   let npcToastDone = false;
 
-  /* crate pyramid — only the CART can smash it */
-  const CRATES = { x: 28, z: -16 };
-  const crateSize = 1.15;
-  const crates = [
-    [-1.2, 0.58, 0],
-    [0, 0.58, 0],
-    [1.2, 0.58, 0],
-    [-0.6, 1.74, 0],
-    [0.6, 1.74, 0],
-    [0, 2.9, 0],
-  ].map(([ox, oy, oz]) => {
-    const c = makeCrate(crateSize);
-    c.position.set(CRATES.x + ox, oy, CRATES.z + oz);
-    c.rotation.y = (hash2(ox, oy) - 0.5) * 0.3;
-    scene.add(c);
-    return { group: c, broken: false };
-  });
-  let cratesDone = false;
-  const fragments = [];
-  const fragGeo = new THREE.BoxGeometry(0.38, 0.1, 0.5);
-
-  function smashCrates(fromX, fromZ) {
-    for (const cr of crates) {
-      if (cr.broken) continue;
-      cr.broken = true;
-      const p = cr.group.position;
-      for (let i = 0; i < 6; i++) {
-        const frag = new THREE.Mesh(
-          fragGeo,
-          new THREE.MeshStandardMaterial({ color: 0x8f6b43, roughness: 0.9, transparent: true }),
-        );
-        frag.position.copy(p);
-        frag.castShadow = true;
-        scene.add(frag);
-        const away = Math.atan2(p.z - fromZ, p.x - fromX) + (hash2(i, p.x) - 0.5) * 1.6;
-        const power = 4 + hash2(i, p.z) * 6;
-        fragments.push({
-          mesh: frag,
-          vel: new THREE.Vector3(Math.cos(away) * power, 3.5 + hash2(i, 7) * 6, Math.sin(away) * power),
-          ang: new THREE.Vector3((hash2(i, 1) - 0.5) * 12, (hash2(i, 2) - 0.5) * 12, (hash2(i, 3) - 0.5) * 12),
-          life: 0,
-        });
-      }
-      scene.remove(cr.group);
+  /* golf bag racks — the smashables */
+  const bags = [];
+  const spawnBagRow = (cx, cz, count, rack, factId) => {
+    for (let i = 0; i < count; i++) {
+      const b = makeGolfBag(i + (rack === 'A' ? 0 : 3));
+      const bx = cx + (i - (count - 1) / 2) * 1.15 + (hash2(i, cz) - 0.5) * 0.3;
+      const bz = cz + (hash2(i, cx) - 0.5) * 0.8;
+      b.group.position.set(bx, groundHeight(bx, bz), bz);
+      b.group.rotation.y = hash2(i, 5) * Math.PI * 2;
+      scene.add(b.group);
+      const body = {
+        group: b.group,
+        clubs: b.clubs,
+        vel: new THREE.Vector2(),
+        r: 0.52,
+        spin: 0,
+        kind: 'bag',
+        rack,
+        factId,
+        woken: false,
+      };
+      dynamics.push(body);
+      bags.push(body);
     }
-    if (!cratesDone) {
-      cratesDone = true;
-      events.push({ type: 'fact', id: 'crates' });
+  };
+  spawnBagRow(28, -16, 5, 'A', 'crates'); // cart-smash rack
+  spawnBagRow(44, 40, 3, 'B', 'tools'); // knockable rack near the park
+  let rackADone = false;
+  let rackBDone = false;
+
+  function ejectClubs(bag, fromX, fromZ) {
+    for (const club of bag.clubs.splice(0, 2)) {
+      club.updateWorldMatrix(true, false);
+      const wp = new THREE.Vector3().setFromMatrixPosition(club.matrixWorld);
+      bag.group.remove(club);
+      club.position.copy(wp);
+      club.rotation.set(hash2(wp.x, 1) * 2, hash2(wp.z, 2) * 6.28, hash2(wp.x, 3) * 2);
+      scene.add(club);
+      const away = Math.atan2(wp.z - fromZ, wp.x - fromX) + (hash2(wp.x, 4) - 0.5) * 1.2;
+      const power = 3 + hash2(wp.z, 5) * 5;
+      debris.push({
+        mesh: club,
+        vel: new THREE.Vector3(Math.cos(away) * power, 3 + hash2(wp.x, 6) * 5, Math.sin(away) * power),
+        ang: new THREE.Vector3((hash2(wp.x, 7) - 0.5) * 14, (hash2(wp.z, 8) - 0.5) * 10, (hash2(wp.x, 9) - 0.5) * 14),
+        life: 0,
+        restY: 0.05,
+        persistent: true,
+        resting: false,
+      });
     }
   }
 
-  /* cone slalom — scatter every cone with the cart */
+  /* cone slalom */
   const cones = [
     [16, -4],
     [20, -8],
@@ -1059,29 +1278,47 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   });
   let conesDone = false;
 
-  /* water splashes */
+  /* tee-marker gates (roll between the markers) */
+  const gates = [
+    { x: 22, z: 44, yaw: 0.9, factId: 'devops', accent: 0x38bdf8 },
+    { x: -36, z: 42, yaw: -0.6, factId: 'db', accent: 0xa78bfa },
+    { x: 58, z: -8, yaw: 1.4, factId: 'langs', accent: 0xf472b6 },
+  ].map((spec) => {
+    scene.add(makeTeeGate(spec.x, spec.z, spec.yaw, spec.accent));
+    const c = Math.cos(spec.yaw);
+    const s = Math.sin(spec.yaw);
+    addStatic(spec.x - 1.8 * c, spec.z + 1.8 * s, 0.22);
+    addStatic(spec.x + 1.8 * c, spec.z - 1.8 * s, 0.22);
+    return { ...spec, passed: false };
+  });
+
+  /* water splashes + landing puffs */
   const splashes = [];
-  function splash(x, z) {
-    const N = 80;
-    const pos = new Float32Array(N * 3);
+  function burst(x, z, opts) {
+    const { count, color, size, up, out, y0 } = opts;
+    const pos = new Float32Array(count * 3);
     const vels = [];
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < count; i++) {
       pos[i * 3] = x;
-      pos[i * 3 + 1] = 0.1;
+      pos[i * 3 + 1] = y0;
       pos[i * 3 + 2] = z;
       const a = hash2(i, 1) * Math.PI * 2;
-      const r = 1 + hash2(i, 2) * 4.5;
-      vels.push(new THREE.Vector3(Math.cos(a) * r, 4 + hash2(i, 3) * 7, Math.sin(a) * r));
+      const r = 0.5 + hash2(i, 2) * out;
+      vels.push(new THREE.Vector3(Math.cos(a) * r, up * (0.5 + hash2(i, 3)), Math.sin(a) * r));
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const pts = new THREE.Points(
       geo,
-      new THREE.PointsMaterial({ color: 0xd8f2fa, size: 0.24, transparent: true, opacity: 0.95, depthWrite: false }),
+      new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.95, depthWrite: false }),
     );
     scene.add(pts);
+    return { pts, vels, rings: [], life: 0 };
+  }
 
-    const rings = [0, 1, 2].map((i) => {
+  function splash(x, z) {
+    const sp = burst(x, z, { count: 80, color: 0xd8f2fa, size: 0.24, up: 7, out: 4.5, y0: 0.1 });
+    sp.rings = [0, 1, 2].map((i) => {
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(0.5, 0.72, 40),
         new THREE.MeshBasicMaterial({ color: 0xeafcff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }),
@@ -1092,37 +1329,12 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       scene.add(ring);
       return ring;
     });
-
-    splashes.push({ pts, vels, rings, life: 0 });
+    splashes.push(sp);
   }
 
-  /* bowling pins — knock all six to unlock the toolbelt fact */
-  const PINS = { x: 44, z: 40 };
-  const pinRows = [[0, 0], [-0.5, 0.9], [0.5, 0.9], [-1, 1.8], [0, 1.8], [1, 1.8]];
-  const pins = pinRows.map(([ox, oz]) => {
-    const p = makePin(PINS.x + ox, PINS.z + oz);
-    scene.add(p);
-    const body = { group: p, vel: new THREE.Vector2(), r: 0.26, spin: 0, kind: 'pin', woken: false };
-    dynamics.push(body);
-    return body;
-  });
-  let pinsDone = false;
-
-  /* gates — roll through to unlock a fact */
-  const gates = [
-    { x: 22, z: 44, yaw: 0.9, factId: 'devops', accent: 0x38bdf8 },
-    { x: -36, z: 42, yaw: -0.6, factId: 'db', accent: 0xa78bfa },
-    { x: 58, z: -8, yaw: 1.4, factId: 'langs', accent: 0xf472b6 },
-  ].map((spec) => {
-    const g = makeGate(spec.x, spec.z, spec.yaw, spec.accent);
-    scene.add(g);
-    // posts as colliders, offset by yaw
-    const c = Math.cos(spec.yaw);
-    const s = Math.sin(spec.yaw);
-    addStatic(spec.x - 1.7 * c, spec.z + 1.7 * s, 0.3);
-    addStatic(spec.x + 1.7 * c, spec.z - 1.7 * s, 0.3);
-    return { ...spec, passed: false };
-  });
+  function puff(x, z) {
+    splashes.push(burst(x, z, { count: 26, color: 0xa8c98a, size: 0.16, up: 3.4, out: 2.4, y0: groundHeight(x, z) + 0.15 }));
+  }
 
   /* flags */
   const nodeObjs = flags.map((n) => makeFlagNode(n, gallery));
@@ -1133,6 +1345,17 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   const byId = Object.fromEntries(nodeObjs.map((o) => [o.id, o]));
   const pickMeshes = nodeObjs.flatMap((o) => o.pickMeshes);
 
+  /* signpost at the tee, pointing into the CV */
+  scene.add(
+    makeSignpost(4, 17, [
+      { text: 'THE STUDIO', tx: -48, tz: -16 },
+      { text: 'CLIENT WORK', tx: 46, tz: -20 },
+      { text: 'TECH SKILLS', tx: -46, tz: 24 },
+      { text: 'HIRE ME', tx: 6, tz: 44 },
+    ]),
+  );
+  addStatic(4, 17, 0.3);
+
   /* route holograms */
   const holoObjs = holos.map((h) => {
     const obj = makeRouteHolo(h);
@@ -1141,19 +1364,33 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
     return obj;
   });
 
-  /* golfers — roll up to one as the ball and they tee you back to Sakrit Kafle */
+  /* golfers */
   const homeBase = byId.profile.base;
   const golfers = [
     [-30, -28],
     [38, 8],
     [-12, 38],
+    [-40, 10],
+    [20, -30],
+    [24, 26],
   ].map(([gx, gz], i) => {
     const g = makeGolfer(i);
     g.group.position.set(gx, groundHeight(gx, gz), gz);
-    g.group.rotation.y = hash2(gx, gz) * Math.PI * 2;
+    const homeYaw = hash2(gx, gz) * Math.PI * 2;
+    g.group.rotation.y = homeYaw;
     scene.add(g.group);
-    addStatic(gx, gz, 0.001); // presence only; the swing does the pushing
-    return { ...g, x: gx, z: gz, state: 'idle', swingT: 0, cooldown: 0, fired: false };
+    return {
+      ...g,
+      x: gx,
+      z: gz,
+      homeYaw,
+      state: 'idle', // idle | practice | swing | flee | return
+      swingT: 0,
+      cooldown: 0,
+      practiceIn: 3 + hash2(gx, i) * 6,
+      fired: false,
+      fleeVel: new THREE.Vector2(),
+    };
   });
 
   /* cart paths */
@@ -1170,8 +1407,10 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       mid.addScaledVector(perp, (hash2(i, 5) - 0.5) * dir.length() * 0.25);
 
       const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+      const pts = curve.getPoints(60);
+      pts.forEach((p) => (p.y = groundHeight(p.x, p.z) + 0.08));
       const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(curve.getPoints(60)),
+        new THREE.BufferGeometry().setFromPoints(pts),
         new THREE.LineDashedMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, dashSize: 0.55, gapSize: 0.45 }),
       );
       line.computeLineDistances();
@@ -1215,7 +1454,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
 
   /* the golf cart */
   const cart = makeCart();
-  cart.group.position.set(9, 0, 20);
+  cart.group.position.set(9, groundHeight(9, 20), 20);
   cart.group.rotation.y = 0.8;
   scene.add(cart.group);
   const cartState = { heading: 0.8, speed: 0 };
@@ -1227,37 +1466,25 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
 
   /* ---------------- physics ---------------- */
 
-  /** Push a moving circle (the vehicle) out of statics and kick dynamics. */
-  function collide(pos, vel, r, mode) {
-    /* crates: rock-solid for the ball, smashable by a fast cart */
-    for (const cr of crates) {
-      if (cr.broken) continue;
-      const cp = cr.group.position;
-      const dx = pos.x - cp.x;
-      const dz = pos.z - cp.z;
-      const d = Math.hypot(dx, dz) || 0.001;
-      const min = r + 0.85;
-      if (d < min) {
-        const speed = Math.hypot(vel.x, vel.z);
-        if (mode === 'cart' && speed > 5) {
-          smashCrates(pos.x, pos.z);
-          vel.x *= 0.6;
-          vel.z *= 0.6;
-          break;
-        }
-        const nx = dx / d;
-        const nz = dz / d;
-        pos.x = cp.x + nx * min;
-        pos.z = cp.z + nz * min;
-        const vn = vel.x * nx + vel.z * nz;
-        if (vn < 0) {
-          vel.x -= 1.7 * vn * nx;
-          vel.z -= 1.7 * vn * nz;
-        }
-      }
+  function smashRackA(fromX, fromZ) {
+    for (const bag of bags) {
+      if (bag.rack !== 'A' || bag.woken) continue;
+      bag.woken = true;
+      const bp = bag.group.position;
+      const away = Math.atan2(bp.z - fromZ, bp.x - fromX) + (hash2(bp.x, 1) - 0.5) * 0.8;
+      const power = 5 + hash2(bp.z, 2) * 5;
+      bag.vel.set(Math.cos(away) * power, Math.sin(away) * power);
+      bag.spin = (hash2(bp.x, 3) - 0.5) * 6;
+      ejectClubs(bag, fromX, fromZ);
     }
+    if (!rackADone) {
+      rackADone = true;
+      events.push({ type: 'fact', id: 'crates' });
+    }
+  }
 
-    /* park visitors: send them flying (gently) */
+  function collide(pos, vel, r, mode) {
+    /* people */
     for (const w of walkers) {
       if (w.state === 'rag') continue;
       const wp = w.group.position;
@@ -1296,6 +1523,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         }
       }
     }
+
     for (const b of dynamics) {
       const bp = b.group.position;
       const dx = pos.x - bp.x;
@@ -1307,29 +1535,49 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         const nz = dz / d;
         const vn = vel.x * nx + vel.z * nz;
         const impact = Math.max(0, -vn);
+
+        // rack-A bags are heavy: only a fast cart moves them
+        if (b.kind === 'bag' && b.rack === 'A' && !b.woken) {
+          if (mode === 'cart' && Math.hypot(vel.x, vel.z) > 5) {
+            smashRackA(pos.x, pos.z);
+            vel.x *= 0.6;
+            vel.z *= 0.6;
+            continue;
+          }
+          pos.x = bp.x + nx * min;
+          pos.z = bp.z + nz * min;
+          if (vn < 0) {
+            vel.x -= 1.6 * vn * nx;
+            vel.z -= 1.6 * vn * nz;
+          }
+          continue;
+        }
+
         pos.x = bp.x + nx * min;
         pos.z = bp.z + nz * min;
-        // kick the body away, slow the vehicle a touch
         b.vel.x -= nx * (impact * 0.9 + 1.2);
         b.vel.y -= nz * (impact * 0.9 + 1.2);
         b.spin = (hash2(bp.x, bp.z) - 0.5) * impact * 2;
         vel.x *= 0.72;
         vel.z *= 0.72;
+
         if (!b.woken && impact > 1.6) {
           b.woken = true;
           if (b.kind === 'bench' && b.factId) events.push({ type: 'fact', id: b.factId });
-          if (b.kind === 'pin') {
-            const downed = pins.filter((p) => p.woken).length;
-            if (downed >= pins.length && !pinsDone) {
-              pinsDone = true;
+          if (b.kind === 'bag' && b.rack === 'B') {
+            ejectClubs(b, pos.x, pos.z);
+            const downed = bags.filter((x) => x.rack === 'B' && x.woken).length;
+            const total = bags.filter((x) => x.rack === 'B').length;
+            if (downed >= total && !rackBDone) {
+              rackBDone = true;
               events.push({ type: 'fact', id: 'tools' });
             } else {
-              events.push({ type: 'pins', downed, total: pins.length });
+              events.push({ type: 'bags', downed, total });
             }
           }
           if (b.kind === 'cone') {
             if (mode !== 'cart') {
-              b.woken = false; // only the cart counts for the slalom
+              b.woken = false;
             } else {
               const downed = cones.filter((p) => p.woken).length;
               if (downed >= cones.length && !conesDone) {
@@ -1343,6 +1591,26 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         }
       }
     }
+
+    // the parked cart is solid to the ball
+    if (mode === 'ball') {
+      const cp = cart.group.position;
+      const dx = pos.x - cp.x;
+      const dz = pos.z - cp.z;
+      const d = Math.hypot(dx, dz) || 0.001;
+      const min = r + 1.5;
+      if (d < min) {
+        const nx = dx / d;
+        const nz = dz / d;
+        pos.x = cp.x + nx * min;
+        pos.z = cp.z + nz * min;
+        const vn = vel.x * nx + vel.z * nz;
+        if (vn < 0) {
+          vel.x -= 1.5 * vn * nx;
+          vel.z -= 1.5 * vn * nz;
+        }
+      }
+    }
   }
 
   function stepDynamics(dt) {
@@ -1351,22 +1619,253 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       if (sp < 0.01) continue;
       b.group.position.x += b.vel.x * dt;
       b.group.position.z += b.vel.y * dt;
-      // knocked props ride the terrain instead of clipping under the lip
       b.group.position.y = groundHeight(b.group.position.x, b.group.position.z);
       b.group.rotation.y += b.spin * dt;
-      if ((b.kind === 'pin' || b.kind === 'cone') && sp > 2)
-        b.group.rotation.z = Math.min(Math.PI / 2.2, b.group.rotation.z + sp * dt * 0.9);
+      if ((b.kind === 'cone' || b.kind === 'bag') && sp > 2)
+        b.group.rotation.z = Math.min(Math.PI / 2.15, b.group.rotation.z + sp * dt * 0.9);
       const damp = Math.exp(-2.6 * dt);
       b.vel.x *= damp;
       b.vel.y *= damp;
       b.spin *= damp;
-      // keep bodies on the island
       const e = Math.hypot(b.group.position.x / ISLAND.rx, b.group.position.z / ISLAND.rz);
       if (e > 1) {
         b.group.position.x /= e;
         b.group.position.z /= e;
         b.vel.x *= -0.4;
         b.vel.y *= -0.4;
+      }
+    }
+
+    for (let i = debris.length - 1; i >= 0; i--) {
+      const f = debris[i];
+      if (f.resting) continue;
+      f.life += dt;
+      f.vel.y -= 22 * dt;
+      f.mesh.position.addScaledVector(f.vel, dt);
+      const gy = groundHeight(f.mesh.position.x, f.mesh.position.z) + f.restY;
+      if (f.mesh.position.y < gy) {
+        f.mesh.position.y = gy;
+        f.vel.y *= -0.32;
+        f.vel.x *= 0.66;
+        f.vel.z *= 0.66;
+      }
+      f.mesh.rotation.x += f.ang.x * dt;
+      f.mesh.rotation.y += f.ang.y * dt;
+      f.mesh.rotation.z += f.ang.z * dt;
+      if (f.life > 1 && f.vel.lengthSq() < 0.08 && Math.abs(f.mesh.position.y - gy) < 0.02) {
+        // clubs come to rest lying flat and stay there
+        f.mesh.rotation.x = Math.PI / 2;
+        f.mesh.rotation.z = 0;
+        f.resting = true;
+      }
+      if (!f.persistent && f.life > 3.8) {
+        scene.remove(f.mesh);
+        debris.splice(i, 1);
+      }
+    }
+  }
+
+  /* NPC brains: stroll / stand, panic when the cart hunts them */
+  function updatePeople(dt, clock, st) {
+    const threat = st.mode === 'cart' ? st.pos : null;
+
+    for (const w of walkers) {
+      const wp = w.group.position;
+      const dThreat = threat ? Math.hypot(threat.x - wp.x, threat.z - wp.z) : Infinity;
+
+      if (w.state !== 'rag' && w.state !== 'rise' && dThreat < 8) {
+        w.state = 'flee';
+      }
+
+      if (w.state === 'walk') {
+        if (!calm) w.t = (w.t + w.speed * dt) % 1;
+        const p = w.curve.getPointAt(w.t);
+        const tan = w.curve.getTangentAt(w.t);
+        w.group.position.set(p.x, groundHeight(p.x, p.z), p.z);
+        w.group.rotation.set(0, Math.atan2(tan.x, tan.z), 0);
+        const swing = calm ? 0 : Math.sin(clock * 7 + w.phase) * 0.65;
+        w.legL.rotation.x = swing;
+        w.legR.rotation.x = -swing;
+        w.armL.rotation.x = -swing * 0.8;
+        if (w.armR) w.armR.rotation.x = swing * 0.8;
+      } else if (w.state === 'stand') {
+        const sway = calm ? 0 : Math.sin(clock * 1.2 + w.phase) * 0.06;
+        w.group.rotation.z = sway * 0.4;
+        w.legL.rotation.x = 0;
+        w.legR.rotation.x = 0;
+      } else if (w.state === 'flee') {
+        if (!threat || dThreat > 13) {
+          w.state = 'return';
+        } else {
+          const ang = Math.atan2(wp.x - threat.x, wp.z - threat.z);
+          wp.x += Math.sin(ang) * 5.6 * dt;
+          wp.z += Math.cos(ang) * 5.6 * dt;
+          wp.y = groundHeight(wp.x, wp.z);
+          const e = Math.hypot(wp.x / ISLAND.rx, wp.z / ISLAND.rz);
+          if (e > 0.98) {
+            wp.x /= e / 0.98;
+            wp.z /= e / 0.98;
+          }
+          w.group.rotation.set(0, ang, 0);
+          const pump = Math.sin(clock * 16 + w.phase) * 1;
+          w.legL.rotation.x = pump;
+          w.legR.rotation.x = -pump;
+          w.armL.rotation.x = -2.6; // arms up, full panic
+          if (w.armR) w.armR.rotation.x = -2.6;
+        }
+      } else if (w.state === 'return') {
+        const target = w.curve
+          ? w.curve.getPointAt(w.t)
+          : new THREE.Vector3(w.home.x, 0, w.home.z);
+        const dx = target.x - wp.x;
+        const dz = target.z - wp.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 0.5) {
+          w.state = w.curve ? 'walk' : 'stand';
+          w.armL.rotation.x = 0;
+          if (w.armR) w.armR.rotation.x = 0;
+          w.group.rotation.z = 0;
+        } else {
+          wp.x += (dx / d) * 2.4 * dt;
+          wp.z += (dz / d) * 2.4 * dt;
+          wp.y = groundHeight(wp.x, wp.z);
+          w.group.rotation.set(0, Math.atan2(dx, dz), 0);
+          const swing = Math.sin(clock * 8 + w.phase) * 0.6;
+          w.legL.rotation.x = swing;
+          w.legR.rotation.x = -swing;
+          w.armL.rotation.x = 0;
+          if (w.armR) w.armR.rotation.x = 0;
+        }
+      } else if (w.state === 'rag') {
+        w.ragT += dt;
+        wp.x += w.vel.x * dt;
+        wp.z += w.vel.y * dt;
+        wp.y = groundHeight(wp.x, wp.z);
+        const damp = Math.exp(-2.2 * dt);
+        w.vel.x *= damp;
+        w.vel.y *= damp;
+        const fall = Math.min(1, w.ragT / 0.45);
+        w.group.rotation.x = (-Math.PI / 2) * fall * w.fallSign;
+        w.group.rotation.y += dt * 2.4 * (1 - fall) * w.fallSign;
+        w.legL.rotation.x = 0.9 * fall;
+        w.legR.rotation.x = -0.7 * fall;
+        w.armL.rotation.x = -1.2 * fall;
+        if (w.armR) w.armR.rotation.x = 1.1 * fall;
+        if (w.ragT > 3) {
+          w.state = 'rise';
+          w.riseT = 0;
+        }
+      } else if (w.state === 'rise') {
+        w.riseT += dt;
+        const k = Math.min(1, w.riseT / 0.9);
+        const ease = 1 - Math.pow(1 - k, 3);
+        w.group.rotation.x = (-Math.PI / 2) * w.fallSign * (1 - ease);
+        w.legL.rotation.x *= 1 - ease;
+        w.legR.rotation.x *= 1 - ease;
+        w.armL.rotation.x *= 1 - ease;
+        if (w.armR) w.armR.rotation.x *= 1 - ease;
+        if (k >= 1) w.state = 'return';
+      }
+    }
+
+    for (const gf of golfers) {
+      gf.cooldown = Math.max(0, gf.cooldown - dt);
+      const gp = gf.group.position;
+      const d = Math.hypot(gp.x - st.pos.x, gp.z - st.pos.z);
+      const dThreat = threat ? Math.hypot(threat.x - gp.x, threat.z - gp.z) : Infinity;
+
+      if (gf.state !== 'flee' && gf.state !== 'return' && dThreat < 8) {
+        gf.state = 'flee';
+      }
+
+      if (gf.state === 'flee') {
+        if (!threat || dThreat > 13) {
+          gf.state = 'return';
+        } else {
+          const ang = Math.atan2(gp.x - threat.x, gp.z - threat.z);
+          gp.x += Math.sin(ang) * 5.8 * dt;
+          gp.z += Math.cos(ang) * 5.8 * dt;
+          gp.y = groundHeight(gp.x, gp.z);
+          const e = Math.hypot(gp.x / ISLAND.rx, gp.z / ISLAND.rz);
+          if (e > 0.98) {
+            gp.x /= e / 0.98;
+            gp.z /= e / 0.98;
+          }
+          gf.group.rotation.y = ang;
+          const pump = Math.sin(clock * 16) * 1;
+          gf.legL.rotation.x = pump;
+          gf.legR.rotation.x = -pump;
+          gf.armL.rotation.x = -2.6;
+          gf.swing.rotation.x = -2.6;
+        }
+        continue;
+      }
+
+      if (gf.state === 'return') {
+        const dx = gf.x - gp.x;
+        const dz = gf.z - gp.z;
+        const dd = Math.hypot(dx, dz);
+        if (dd < 0.4) {
+          gf.state = 'idle';
+          gf.group.rotation.y = gf.homeYaw;
+          gf.legL.rotation.x = 0;
+          gf.legR.rotation.x = 0;
+          gf.armL.rotation.x = 0;
+          gf.swing.rotation.x = -0.45;
+        } else {
+          gp.x += (dx / dd) * 2.6 * dt;
+          gp.z += (dz / dd) * 2.6 * dt;
+          gp.y = groundHeight(gp.x, gp.z);
+          gf.group.rotation.y = Math.atan2(dx, dz);
+          const swing = Math.sin(clock * 8) * 0.6;
+          gf.legL.rotation.x = swing;
+          gf.legR.rotation.x = -swing;
+          gf.armL.rotation.x = 0;
+          gf.swing.rotation.x = -0.45;
+        }
+        continue;
+      }
+
+      if (d < 9) gf.group.rotation.y = Math.atan2(st.pos.x - gp.x, st.pos.z - gp.z);
+
+      if (gf.state === 'idle') {
+        if (!calm) gf.swing.rotation.x = -0.45 + Math.sin(clock * 1.3 + gf.x) * 0.05;
+        gf.practiceIn -= dt;
+        if (st.mode === 'ball' && st.air < 0.2 && d < 2.8 && gf.cooldown <= 0) {
+          gf.state = 'swing';
+          gf.swingT = 0;
+          gf.fired = false;
+        } else if (gf.practiceIn <= 0 && d > 10 && !calm) {
+          gf.state = 'practice';
+          gf.swingT = 0;
+        }
+      } else {
+        const isShot = gf.state === 'swing';
+        const rate = isShot ? 1 : 0.45; // practice swings are lazy
+        gf.swingT += dt * rate;
+        const t = gf.swingT;
+        if (t < 0.3) {
+          gf.swing.rotation.x = -0.45 - (t / 0.3) * 2.1;
+        } else if (t < 0.42) {
+          gf.swing.rotation.x = -2.55 + ((t - 0.3) / 0.12) * 3.3;
+          if (isShot && !gf.fired && t > 0.36) {
+            gf.fired = true;
+            const dx = homeBase.x - st.pos.x;
+            const dz = homeBase.z - st.pos.z;
+            const dist = Math.hypot(dx, dz) || 1;
+            const vy = 15;
+            const flight = (2 * vy) / 30;
+            const power = Math.min(46, Math.max(18, (dist / flight) * 1.4));
+            events.push({ type: 'shot', dx: dx / dist, dz: dz / dist, power, vy });
+          }
+        } else if (t < 1.3) {
+          gf.swing.rotation.x = 0.75 - ((t - 0.42) / 0.88) * 1.2;
+        } else {
+          gf.swing.rotation.x = -0.45;
+          gf.state = 'idle';
+          gf.cooldown = isShot ? 3.5 : 0;
+          gf.practiceIn = 4 + hash2(gf.x, clock) * 6;
+        }
       }
     }
   }
@@ -1376,8 +1875,8 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
   function update(dt, clock, st) {
     pollen.material.uniforms.uTime.value = clock;
     water.material.uniforms.uTime.value = clock;
+    grassTime.value = clock;
 
-    // roll the ball when it's the vehicle
     if (st.mode === 'ball') {
       const speed = st.vel.length();
       if (speed > 0.02) {
@@ -1389,157 +1888,11 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       cart.wheels.forEach((w) => (w.rotation.x += cartState.speed * dt * 2.6));
     }
 
-    // a ball in flight sails over everything on the ground
     if (!(st.mode === 'ball' && st.air > 0.8)) {
       collide(st.pos, st.vel, st.mode === 'cart' ? 1.5 : 0.5, st.mode);
     }
     stepDynamics(dt);
-
-    /* golfers: face an approaching ball, swing, and launch it home */
-    for (const gf of golfers) {
-      gf.cooldown = Math.max(0, gf.cooldown - dt);
-      const d = Math.hypot(gf.x - st.pos.x, gf.z - st.pos.z);
-
-      if (d < 9) {
-        gf.group.rotation.y = Math.atan2(st.pos.x - gf.x, st.pos.z - gf.z);
-      }
-
-      if (gf.state === 'idle') {
-        if (!calm) gf.swing.rotation.x = -0.45 + Math.sin(clock * 1.3 + gf.x) * 0.05;
-        if (st.mode === 'ball' && st.air < 0.2 && d < 2.8 && gf.cooldown <= 0) {
-          gf.state = 'swing';
-          gf.swingT = 0;
-          gf.fired = false;
-        }
-      } else {
-        gf.swingT += dt;
-        const t = gf.swingT;
-        if (t < 0.3) {
-          gf.swing.rotation.x = -0.45 - (t / 0.3) * 2.1; // backswing
-        } else if (t < 0.42) {
-          gf.swing.rotation.x = -2.55 + ((t - 0.3) / 0.12) * 3.3; // strike
-          if (!gf.fired && t > 0.36) {
-            gf.fired = true;
-            const dx = homeBase.x - st.pos.x;
-            const dz = homeBase.z - st.pos.z;
-            const dist = Math.hypot(dx, dz) || 1;
-            const vy = 15;
-            const flight = (2 * vy) / 30;
-            const power = Math.min(46, Math.max(18, (dist / flight) * 1.4));
-            events.push({ type: 'shot', dx: dx / dist, dz: dz / dist, power, vy });
-          }
-        } else if (t < 1.3) {
-          gf.swing.rotation.x = 0.75 - ((t - 0.42) / 0.88) * 1.2; // follow through
-        } else {
-          gf.swing.rotation.x = -0.45;
-          gf.state = 'idle';
-          gf.cooldown = 3.5;
-        }
-      }
-    }
-
-    /* park visitors */
-    for (const w of walkers) {
-      if (w.state === 'walk') {
-        if (!calm) w.t = (w.t + w.speed * dt) % 1;
-        const p = w.curve.getPointAt(w.t);
-        const tan = w.curve.getTangentAt(w.t);
-        w.group.position.set(p.x, groundHeight(p.x, p.z), p.z);
-        w.group.rotation.set(0, Math.atan2(tan.x, tan.z), 0);
-        const ph = clock * 7 + w.phase;
-        const swing = calm ? 0 : Math.sin(ph) * 0.65;
-        w.legL.rotation.x = swing;
-        w.legR.rotation.x = -swing;
-        w.armL.rotation.x = -swing * 0.8;
-        w.armR.rotation.x = swing * 0.8;
-      } else if (w.state === 'rag') {
-        w.ragT += dt;
-        w.group.position.x += w.vel.x * dt;
-        w.group.position.z += w.vel.y * dt;
-        w.group.position.y = groundHeight(w.group.position.x, w.group.position.z);
-        const damp = Math.exp(-2.2 * dt);
-        w.vel.x *= damp;
-        w.vel.y *= damp;
-        // flop over with splayed limbs, plus a little tumble on the way down
-        const fall = Math.min(1, w.ragT / 0.45);
-        w.group.rotation.x = (-Math.PI / 2) * fall * w.fallSign;
-        w.group.rotation.y += dt * 2.4 * (1 - fall) * w.fallSign;
-        w.legL.rotation.x = 0.9 * fall;
-        w.legR.rotation.x = -0.7 * fall;
-        w.armL.rotation.x = -1.2 * fall;
-        w.armR.rotation.x = 1.1 * fall;
-        if (w.ragT > 3) {
-          w.state = 'rise';
-          w.riseT = 0;
-        }
-      } else {
-        w.riseT += dt;
-        const k = Math.min(1, w.riseT / 0.9);
-        const ease = 1 - Math.pow(1 - k, 3);
-        w.group.rotation.x = (-Math.PI / 2) * w.fallSign * (1 - ease);
-        w.legL.rotation.x *= 1 - ease;
-        w.legR.rotation.x *= 1 - ease;
-        w.armL.rotation.x *= 1 - ease;
-        w.armR.rotation.x *= 1 - ease;
-        const home = w.curve.getPointAt(w.t);
-        w.group.position.lerp(new THREE.Vector3(home.x, groundHeight(home.x, home.z), home.z), ease * 0.12);
-        if (k >= 1) w.state = 'walk';
-      }
-    }
-
-    /* crate debris */
-    for (let i = fragments.length - 1; i >= 0; i--) {
-      const f = fragments[i];
-      f.life += dt;
-      f.vel.y -= 22 * dt;
-      f.mesh.position.addScaledVector(f.vel, dt);
-      if (f.mesh.position.y < 0.08) {
-        f.mesh.position.y = 0.08;
-        f.vel.y *= -0.32;
-        f.vel.x *= 0.7;
-        f.vel.z *= 0.7;
-      }
-      f.mesh.rotation.x += f.ang.x * dt;
-      f.mesh.rotation.y += f.ang.y * dt;
-      f.mesh.rotation.z += f.ang.z * dt;
-      f.mesh.material.opacity = 1 - Math.max(0, (f.life - 2.6) / 1.2);
-      if (f.life > 3.8) {
-        scene.remove(f.mesh);
-        f.mesh.material.dispose();
-        fragments.splice(i, 1);
-      }
-    }
-
-    /* water splashes */
-    for (let i = splashes.length - 1; i >= 0; i--) {
-      const sp = splashes[i];
-      sp.life += dt;
-      const posAttr = sp.pts.geometry.attributes.position;
-      for (let j = 0; j < sp.vels.length; j++) {
-        const v = sp.vels[j];
-        v.y -= 18 * dt;
-        posAttr.array[j * 3] += v.x * dt;
-        posAttr.array[j * 3 + 1] += v.y * dt;
-        posAttr.array[j * 3 + 2] += v.z * dt;
-      }
-      posAttr.needsUpdate = true;
-      sp.pts.material.opacity = Math.max(0, 0.95 - sp.life * 0.7);
-      sp.rings.forEach((ring, ri) => {
-        ring.scale.addScalar(dt * (4 + ri * 2.2));
-        ring.material.opacity = Math.max(0, 0.75 - sp.life * (0.55 + ri * 0.12));
-      });
-      if (sp.life > 1.6) {
-        scene.remove(sp.pts);
-        sp.pts.geometry.dispose();
-        sp.pts.material.dispose();
-        sp.rings.forEach((ring) => {
-          scene.remove(ring);
-          ring.geometry.dispose();
-          ring.material.dispose();
-        });
-        splashes.splice(i, 1);
-      }
-    }
+    updatePeople(dt, clock, st);
 
     for (const o of nodeObjs) {
       const found = st.discovered.has(o.id);
@@ -1575,7 +1928,6 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       }
     }
 
-    /* route holograms: open on approach, stay until C, re-arm on leaving */
     for (const h of holoObjs) {
       const d = h.base.distanceTo(st.pos);
       if (d > HOLO_R + 3) h.muted = false;
@@ -1597,7 +1949,6 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       }
     }
 
-    /* gates */
     for (const g of gates) {
       if (g.passed) continue;
       if (Math.hypot(g.x - st.pos.x, g.z - st.pos.z) < 2.1) {
@@ -1612,10 +1963,40 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       if (lit && !calm) {
         const t = (clock * 0.1 + l.seed) % 1;
         l.curve.getPoint(t, l.runner.position);
-        l.runner.position.y = 0.14;
+        l.runner.position.y = groundHeight(l.runner.position.x, l.runner.position.z) + 0.14;
         l.runner.material.opacity = Math.sin(t * Math.PI) * 0.85;
       } else {
         l.runner.material.opacity = 0;
+      }
+    }
+
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const sp = splashes[i];
+      sp.life += dt;
+      const posAttr = sp.pts.geometry.attributes.position;
+      for (let j = 0; j < sp.vels.length; j++) {
+        const v = sp.vels[j];
+        v.y -= 18 * dt;
+        posAttr.array[j * 3] += v.x * dt;
+        posAttr.array[j * 3 + 1] += v.y * dt;
+        posAttr.array[j * 3 + 2] += v.z * dt;
+      }
+      posAttr.needsUpdate = true;
+      sp.pts.material.opacity = Math.max(0, 0.95 - sp.life * 0.7);
+      sp.rings.forEach((ring, ri) => {
+        ring.scale.addScalar(dt * (4 + ri * 2.2));
+        ring.material.opacity = Math.max(0, 0.75 - sp.life * (0.55 + ri * 0.12));
+      });
+      if (sp.life > 1.6) {
+        scene.remove(sp.pts);
+        sp.pts.geometry.dispose();
+        sp.pts.material.dispose();
+        sp.rings.forEach((ring) => {
+          scene.remove(ring);
+          ring.geometry.dispose();
+          ring.material.dispose();
+        });
+        splashes.splice(i, 1);
       }
     }
   }
@@ -1634,6 +2015,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
     update,
     events,
     splash,
+    puff,
     cartHome: { x: 9, z: 20, heading: 0.8 },
 
     closeHolos() {

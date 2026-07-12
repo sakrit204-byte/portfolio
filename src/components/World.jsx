@@ -310,6 +310,8 @@ export default function World({ onOpen, paused = false }) {
           S.airVy -= 30 * dt;
           S.airY += S.airVy * dt;
           if (S.airY <= 0) {
+            // touchdown — kick up a little turf
+            if (S.airVy < -6) world.puff(player.position.x, player.position.z);
             S.airY = 0;
             S.airVy = 0;
           }
@@ -449,11 +451,11 @@ export default function World({ onOpen, paused = false }) {
           setFacts(new Set(S.facts));
           const f = COURSE_FACTS[ev.id];
           if (f) pushToast({ key: `${ev.id}-${Math.round(clock * 1000)}`, title: f.title, text: f.text });
-        } else if (ev.type === 'pins') {
+        } else if (ev.type === 'bags') {
           pushToast({
-            key: `pins-${ev.downed}`,
-            title: `Pins down — ${ev.downed}/${ev.total}`,
-            text: 'Knock them all for a secret.',
+            key: `bags-${ev.downed}`,
+            title: `Golf bags down — ${ev.downed}/${ev.total}`,
+            text: 'Topple the whole rack for a secret.',
           });
         } else if (ev.type === 'cones') {
           pushToast({

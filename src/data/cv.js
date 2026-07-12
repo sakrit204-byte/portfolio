@@ -394,8 +394,8 @@ export const COURSE_FLAGS = [
   {
     id: 'skills',
     kind: 'product',
-    x: -52,
-    z: 28,
+    x: -46,
+    z: 24,
     label: 'Tech Skills',
     kicker: 'THE STACK',
     study: {
@@ -410,8 +410,8 @@ export const COURSE_FLAGS = [
   {
     id: 'services',
     kind: 'client',
-    x: 52,
-    z: 26,
+    x: 46,
+    z: 22,
     label: 'Services',
     kicker: 'WHAT I BUILD FOR YOU',
     study: {
@@ -428,7 +428,7 @@ export const COURSE_FLAGS = [
     id: 'education',
     kind: 'client',
     x: -4,
-    z: -48,
+    z: -42,
     label: 'Education',
     kicker: 'THE FUNDAMENTALS',
     study: {
@@ -447,7 +447,7 @@ export const COURSE_FLAGS = [
     id: 'hire',
     kind: 'beacon',
     x: 6,
-    z: 50,
+    z: 44,
     label: 'Hire Me',
     kicker: 'THE 19TH HOLE',
     study: {
