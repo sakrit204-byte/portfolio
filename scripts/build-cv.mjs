@@ -50,6 +50,7 @@ const html = `<!doctype html>
   <p class="role">${esc(PROFILE.role)} · ${esc(PROFILE.studio)}</p>
   <p class="contact">
     <span>${link(CONTACT.phoneHref, CONTACT.phone)}</span>
+    <span>${link(CONTACT.phoneHomeHref, CONTACT.phoneHome)}</span>
     <span>${link(`mailto:${CONTACT.email}`, CONTACT.email)}</span>
     <span>${link(CONTACT.githubHref, CONTACT.github)}</span>
     <span>${link(CONTACT.youtubeHref, CONTACT.youtube)}</span>

@@ -18,9 +18,12 @@ export const PROFILE = {
 };
 
 export const CONTACT = {
-  phone: '+977 9861054127',
-  phoneHref: 'tel:+9779861054127',
-  email: 'sakrit.kafle2024@vitstudent.ac.in',
+  phone: '+91 8610608853',
+  phoneHref: 'tel:+918610608853',
+  phoneHome: '+977 9861054127',
+  phoneHomeHref: 'tel:+9779861054127',
+  email: 'sakrit204@gmail.com',
+  emailUni: 'sakrit.kafle2024@vitstudent.ac.in',
   github: 'github.com/sakrit204-byte',
   githubHref: 'https://github.com/sakrit204-byte',
   youtube: 'youtube.com/@sakritkafle9537',

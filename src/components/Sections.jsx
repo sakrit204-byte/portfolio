@@ -245,6 +245,8 @@ export function Contact() {
 
         <Reveal className={s.channels} delay={0.16}>
           <a href={CONTACT.phoneHref}>{CONTACT.phone}</a>
+          <a href={CONTACT.phoneHomeHref}>{CONTACT.phoneHome}</a>
+          <a href={`mailto:${CONTACT.emailUni}`}>{CONTACT.emailUni}</a>
           <a href={CONTACT.githubHref} target="_blank" rel="noreferrer">
             GitHub
           </a>
