@@ -1,596 +1,332 @@
 /**
- * Single source of truth for the site. Mirrors sakrit_kafle_cv_freelance.docx.
- * World coordinates are in world-space px; the camera frames the map at load.
+ * Single source of truth for the site and the CV. Every claim here should be
+ * something Sakrit can point to: a live link, a repo, a screenshot.
  */
 
 export const PROFILE = {
   name: 'Sakrit Kafle',
-  roles: ['Freelance Full-Stack Developer', 'Co-Founder, YADverse'],
+  role: 'Full stack and AI engineer',
+  studio: 'Cofounder, YADverse',
   location: 'Bhaktapur, Nepal',
-  available: 'Available for remote contracts',
-  summary:
-    'Full-stack developer and co-founder of YADverse — a software studio shipping web apps, AI products, and hosting infrastructure from Kathmandu. I work directly with clients across time zones, owning projects end-to-end: scoping, architecture, build, and live deployment.',
-  summaryRest:
-    'Alongside the studio, I take select freelance contracts in custom web development, CRM systems, REST API design, and WordPress. Currently in my penultimate year of B.Tech CSE at VIT Vellore; available for remote contracts.',
+  headline: 'I design, build and deploy software people rely on.',
+  intro:
+    'Full stack and AI engineer, cofounder of YADverse. I take products from the first sketch to a running server: web platforms, field apps for government teams, and governed AI tooling.',
+  about: [
+    'I grew up in Kathmandu and now split my time between client work at YADverse and a B.Tech in Computer Science at VIT Vellore. Most of what I build ends up in production, so I care as much about deployment and maintenance as about the interface.',
+    'My favourite projects sit where careful engineering meets real constraints: an app that has to work for forest officers in the field, a CRM an admissions team uses every day, or an AI agent that must not be allowed to do the wrong thing.',
+  ],
 };
 
 export const CONTACT = {
   phone: '+977 9861054127',
   phoneHref: 'tel:+9779861054127',
   email: 'sakrit.kafle2024@vitstudent.ac.in',
-  site: 'sakritkafle.netlify.app',
-  siteHref: 'https://sakritkafle.netlify.app',
   github: 'github.com/sakrit204-byte',
   githubHref: 'https://github.com/sakrit204-byte',
-  studio: 'yadverse.netlify.app',
-  studioHref: 'https://yadverse.netlify.app',
+  youtube: 'youtube.com/@sakritkafle9537',
+  youtubeHref: 'https://www.youtube.com/@sakritkafle9537',
+  studio: 'yadverse.tech',
+  studioHref: 'https://yadverse.tech',
   cvHref: '/sakrit-kafle-cv.pdf',
   cvFile: 'Sakrit-Kafle-CV.pdf',
 };
 
-export const STATS = [
-  { value: '12+', label: 'products shipped' },
-  { value: '3', label: 'countries served' },
-  { value: '99.9%', label: 'uptime' },
-  { value: '26', label: 'river systems mapped' },
-];
+const shot = (p) => `/shots/${p}`;
 
-/** Explorable map nodes. `study` drives the case-study drawer. */
-export const NODES = [
+/**
+ * Featured projects, shown as scroll-driven device showcases.
+ * `device`: 'monitor' | 'phone' | 'pair' (monitor with a phone in front).
+ * Each step swaps the screen; tall screenshots scroll inside the device.
+ */
+export const PROJECTS = [
   {
-    id: 'home',
-    kind: 'home',
-    x: 0,
-    y: 0,
-    label: 'Sakrit Kafle',
-    kicker: 'CLUBHOUSE',
-    note: 'start here',
-    study: {
-      title: 'Sakrit Kafle',
-      role: 'Freelance Full-Stack Developer',
-      org: 'Co-Founder, YADverse',
-      period: 'Bhaktapur, Nepal',
-      summary: `${PROFILE.summary} ${PROFILE.summaryRest}`,
-      bullets: [
-        'Owns projects end-to-end: scoping, architecture, build, live deployment.',
-        'Works directly with clients across time zones — Nepal, Australia, and beyond.',
-        'Deploys and maintains production infrastructure, not just front-ends.',
-      ],
-      stack: ['Next.js', 'React', 'Node.js', 'FastAPI', 'PostgreSQL', 'Docker'],
-      metrics: STATS.slice(0, 3),
-    },
+    id: 'airlock',
+    name: 'Okta Access Airlock',
+    context: 'RailCall marketplace module',
+    year: '2026',
+    device: 'monitor',
+    summary:
+      'A governed way for AI agents to administer Okta. Every change is previewed, approved by a person and then checked again before it runs, so an agent can help with access reviews without being trusted blindly.',
+    stack: ['Python 3.11', 'OAuth 2.0 private_key_jwt', 'DPoP', 'MCP', 'GitHub Actions'],
+    links: [
+      { label: 'Marketplace listing', href: 'https://railcall.ai/marketplace/sakrit204/okta-access-airlock/' },
+      { label: 'Source on GitHub', href: 'https://github.com/sakrit204-byte/Okta_Access_Airlock_Railcall' },
+    ],
+    video: { id: 'uGARAVYtTCA', label: 'Watch the demo', length: '4:50' },
+    steps: [
+      {
+        tab: 'Publish',
+        title: 'Live on the RailCall marketplace',
+        text: 'Built for the RailCall Developer Challenge and published as a signed module anyone can install with a single command.',
+        web: shot('railcall/railcall_title.jpg'),
+      },
+      {
+        tab: 'Commands',
+        title: '36 commands, each with a risk level',
+        text: 'Reads and writes are separated. Before a deactivation runs, the module shows its blast radius: what access is removed and what survives. There is deliberately no delete user command.',
+        web: shot('railcall/railcall_command_1.jpg'),
+      },
+      {
+        tab: 'Refuse',
+        title: 'Plans that refuse to drift',
+        text: 'Each plan fingerprints the state it depends on. If the group changes after approval, the apply is refused with plan_drifted instead of acting on stale information.',
+        web: shot('railcall/railcall_demo_refused.jpg'),
+      },
+      {
+        tab: 'Prove',
+        title: 'Every write has a provable outcome',
+        text: 'Writes end as landed, failed or unresolved, and are reconciled against the Okta System Log. A companion workflow runs a quarterly access review end to end.',
+        web: shot('railcall/railcall_workflow_listing.jpg'),
+      },
+    ],
   },
   {
-    id: 'yadverse',
-    kind: 'studio',
-    x: -620,
-    y: -140,
-    label: 'YADverse',
-    kicker: 'THE STUDIO',
-    note: 'co-founded 2025',
-    study: {
-      title: 'YADverse',
-      role: 'Co-Founder & Full-Stack Developer',
-      org: 'YADverse — Software Studio',
-      period: 'Jan 2025 – Present',
-      location: 'Kathmandu, Nepal',
-      link: { label: 'yadverse.netlify.app', href: CONTACT.studioHref },
-      summary:
-        'YADverse is a product-engineering studio serving clients across Nepal, Australia, and beyond. We design and build web apps, AI-integrated products, and cloud infrastructure — 12+ products shipped across 3 countries at 99.9% uptime.',
-      bullets: [
-        'Own the frontend and backend architecture for studio client projects from initial scoping through to production deployment.',
-        'Operate reverse-proxy hosting on studio-managed infrastructure; deploy services that auto-restart with zero downtime.',
-        'Collaborate across a three-founder team (Dikshit Yadav — cloud infrastructure; Aayush Shah) on bid, design, and delivery.',
-      ],
-      stack: [
-        'Next.js',
-        'React',
-        'Node.js',
-        'FastAPI',
-        'PostgreSQL',
-        'Supabase',
-        'Docker',
-        'GitHub Actions',
-        'WordPress',
-        'Tailwind',
-      ],
-      metrics: [
-        { value: '12+', label: 'products shipped' },
-        { value: '3', label: 'countries' },
-        { value: '99.9%', label: 'uptime' },
-      ],
-    },
-  },
-  {
-    id: 'brcrn',
-    kind: 'gov',
-    x: 520,
-    y: -160,
-    label: 'BRCRN Project',
-    kicker: 'GOVERNMENT OF NEPAL',
-    note: '26 river systems',
-    study: {
-      title: 'BRCRN Project',
-      role: 'Full-Stack Developer — Government Deployment',
-      org: 'Ministry of Agriculture, Forest and Environment · Government of Nepal',
-      period: 'May 2026 – July 2026',
-      summary:
-        '50-day technical internship under Dr. Krishna Bahadur Bhujel and Dr. Bimal Pokhrel. Delivered two production systems for a seven-year GCF/FAO-funded project covering 26 river systems across Nepal.',
-      groups: [
-        {
-          title: 'Plantation Monitoring System',
-          bullets: [
-            'Designed and built a unified Android field app + web admin portal sharing a single database across the full plantation lifecycle: site prep, implementation, protection, weeding, and casualty replacement.',
-            'Loaded baseline data for all 26 river systems with province/district/area/population, species catalogue, and 48 LRP records across three PPMUs (Koshi, Madhesh, Bagmati).',
-            "Deployed onto the Project's on-site Government server using a reverse-proxy approach — connecting to the existing database and running as a managed, auto-starting service without disturbing any live systems.",
-            'Distributed the field application to field LRPs.',
-          ],
-        },
-        {
-          title: 'Churia Knowledge Centre Web Platform',
-          bullets: [
-            'Built the web-based Churia Knowledge Centre for knowledge contribution, publication, documentation, and dissemination.',
-            'Built an AI-driven RAG tool: the administrator configures access keys for various Government ministry data repositories; the tool autonomously locates, fetches, and classifies documents by type (journal, technical report, pamphlet) to keep the Knowledge Centre continuously populated with Chure-specific knowledge.',
-          ],
-        },
-      ],
-      stack: ['Android', 'React', 'FastAPI', 'PostgreSQL', 'RAG', 'LangChain', 'Reverse Proxy', 'Linux'],
-      metrics: [
-        { value: '26', label: 'river systems' },
-        { value: '48', label: 'LRP records' },
-        { value: '2', label: 'production systems' },
-      ],
-    },
+    id: 'plantation',
+    name: 'Plantation Monitoring System',
+    context: 'BRCRN Project, Government of Nepal',
+    year: '2026',
+    device: 'pair',
+    summary:
+      'One system for the whole plantation lifecycle on a GCF and FAO funded climate project: a field app for officers on the ground and an admin portal for the ministry, sharing a single database.',
+    stack: ['Flutter (Android)', 'React', 'tRPC', 'PostgreSQL', 'Leaflet', 'Reverse proxy', 'Linux'],
+    links: [],
+    steps: [
+      {
+        tab: 'Field',
+        title: 'Built for officers in the field',
+        text: 'Field officers sign in with their phone number and record site preparation, planting, protection, weeding and casualty replacement, with photos and GPS.',
+        web: shot('plantation/web-login.jpg'),
+        mobile: shot('plantation/mobile-login.jpg'),
+      },
+      {
+        tab: 'Portal',
+        title: 'One portal for the ministry',
+        text: 'Administrators see all 26 river systems on a map of Nepal, with role based access, approvals, an audit log and Excel exports for reporting.',
+        web: shot('plantation/web-login.jpg'),
+        mobile: shot('plantation/mobile-login.jpg'),
+      },
+      {
+        tab: 'Deploy',
+        title: 'Running on a government server',
+        text: 'Deployed onto the project’s own server behind a reverse proxy as a managed service that starts on its own, without disturbing the systems already running there.',
+        web: shot('plantation/web-login.jpg'),
+        mobile: shot('plantation/mobile-login.jpg'),
+      },
+    ],
   },
   {
     id: 'synexis',
-    kind: 'product',
-    x: -350,
-    y: 190,
-    label: 'Synexis CRM',
-    kicker: 'INDEPENDENT BUILD',
-    note: 'zero scaffolding',
-    study: {
-      title: 'Synexis CRM',
-      role: 'Full-Stack Developer',
-      org: 'YADverse Studio Work',
-      period: 'Independent Build · 2026',
-      summary:
-        'A complete CRM platform built from scratch — scoped, architected, built, and shipped end-to-end without guided scaffolding. Now part of the YADverse portfolio.',
-      bullets: [
-        'Built a complete CRM platform from scratch: contact management, deal pipelines, activity logs, and JWT-based authentication.',
-        'Designed REST APIs in Node.js/Express with a relational MySQL schema and role-based access control.',
-        'Scoped, architected, built, and shipped the product end-to-end without guided scaffolding — now part of the YADverse portfolio.',
-      ],
-      stack: ['Node.js', 'Express', 'MySQL', 'JWT', 'RBAC', 'REST'],
-      metrics: [
-        { value: '100%', label: 'built from scratch' },
-        { value: 'RBAC', label: 'access control' },
-        { value: 'JWT', label: 'authentication' },
-      ],
-    },
+    name: 'Synexis CRM',
+    context: 'YADverse product',
+    year: '2026',
+    device: 'monitor',
+    summary:
+      'A student admissions CRM, built from scratch, that lets a consultancy manage applicants, track every application and keep university preferences in one place.',
+    stack: ['Node.js', 'Express', 'MySQL', 'JWT', 'Role based access', 'REST'],
+    links: [{ label: 'See it on yadverse.tech', href: 'https://yadverse.tech' }],
+    steps: [
+      {
+        tab: 'Students',
+        title: 'A guided four step intake',
+        text: 'Counsellors add a student through profile, academic background, application details and documents, so nothing important gets skipped.',
+        web: shot('synex/web-add-student.jpg'),
+      },
+      {
+        tab: 'Applications',
+        title: 'Visa and university choices together',
+        text: 'Each application holds the destination, visa type, intake and course, plus up to four ranked university preferences and an assigned counsellor.',
+        web: shot('synex/web-add-student.jpg'),
+      },
+    ],
   },
   {
     id: 'fleet',
-    kind: 'client',
-    x: 740,
-    y: 105,
-    label: 'YourFleetElite',
-    kicker: 'AUSTRALIA · REMOTE',
-    note: 'zero downtime',
-    study: {
-      title: 'YourFleetElite',
-      role: 'WordPress Developer',
-      org: 'YourFleetElite · Australia',
-      period: 'Remote Contract',
-      summary:
-        'Built and maintained the production WordPress site for an Australian fleet management company, delivered across time zones.',
-      bullets: [
-        'Built and maintained the production WordPress site for an Australian fleet management company.',
-        'Customised themes and integrated plugins; improved page load speed and mobile responsiveness to match client SLA.',
-        'Delivered across time zones — zero downtime on all live deployments throughout the engagement.',
-      ],
-      stack: ['WordPress', 'PHP', 'Theme Customisation', 'Plugin Integration', 'Performance'],
-      metrics: [
-        { value: '0', label: 'downtime incidents' },
-        { value: 'SLA', label: 'met on mobile' },
-        { value: '2', label: 'time zones' },
-      ],
-    },
+    name: 'YourFleetElite',
+    context: 'Remote client, Sydney',
+    year: '2025',
+    device: 'pair',
+    summary:
+      'The production WordPress site for a Sydney fleet management company: vans, trucks and utes kept on the road. Built and maintained remotely across time zones.',
+    stack: ['WordPress', 'PHP', 'Custom theme', 'Performance tuning'],
+    links: [{ label: 'yourfleetelite.com.au', href: 'https://yourfleetelite.com.au/' }],
+    steps: [
+      {
+        tab: 'Site',
+        title: 'Clear on a phone, clear on a desk',
+        text: 'A customised theme with integrated plugins, tuned for page speed and mobile layout so fleet managers can find what they need quickly.',
+        web: shot('yourfleetelite/web-home.jpg'),
+        mobile: shot('yourfleetelite/mobile-home.jpg'),
+      },
+      {
+        tab: 'Care',
+        title: 'Kept live while it changed',
+        text: 'Updates shipped from Nepal on Sydney time, with every deployment made without taking the site down.',
+        web: shot('yourfleetelite/web-home.jpg'),
+        mobile: shot('yourfleetelite/mobile-home.jpg'),
+      },
+    ],
   },
   {
-    id: 'hire',
-    kind: 'beacon',
-    x: 40,
-    y: 235,
-    label: 'Hire Me',
-    kicker: 'OPEN FOR CONTRACTS',
-    note: 'this way →',
-    study: {
-      title: 'Let’s build something',
-      role: 'Available for remote contracts',
-      org: 'Freelance · Worldwide',
-      period: 'Booking now',
-      summary:
-        'I take select freelance contracts in custom web development, CRM systems, REST API design, WordPress, and AI/RAG integrations. I scope honestly, build in the open, and deploy it myself.',
-      bullets: [
-        'Direct line to the developer — no account managers, no handoffs.',
-        'Proven across government, startup, and international commercial clients.',
-        'I ship to production and keep it running: reverse-proxy hosting, auto-restart services, Linux admin.',
-      ],
-      stack: ['Discovery call', 'Fixed scope', 'Weekly demos', 'Production handover'],
-      cta: true,
-    },
+    id: 'sakritcraft',
+    name: 'SakritCraft',
+    context: 'Personal engine project',
+    year: 'In progress',
+    device: 'monitor',
+    still: true,
+    summary:
+      'A survival and crafting game on a game engine written from scratch in C# and Vulkan. Terrain is a signed distance field, so tunnels slope and cliffs overhang, streamed out to the horizon.',
+    stack: ['C#', '.NET 9', 'Vulkan 1.3', 'Surface nets', 'Cascaded shadows'],
+    links: [{ label: 'Source on GitHub', href: 'https://github.com/sakrit204-byte/minecraft' }],
+    steps: [
+      {
+        tab: 'World',
+        title: 'A world you can see to the horizon',
+        text: 'Terrain streams in around the player while the simulation ticks at a steady 20 Hz, independent of frame rate.',
+        web: shot('minecraft/12_full_scale_world.jpg'),
+      },
+      {
+        tab: 'Light',
+        title: 'Light that reads the landscape',
+        text: 'Cascaded shadow maps and raking light give mountains real weight, from noon to dusk.',
+        web: shot('minecraft/09_raking_light.jpg'),
+      },
+      {
+        tab: 'Water',
+        title: 'Coasts and shorelines',
+        text: 'Water meets terrain with a proper shoreline instead of a flat cutoff.',
+        web: shot('minecraft/14_shoreline.jpg'),
+      },
+      {
+        tab: 'Night',
+        title: 'Creatures after dark',
+        text: 'The night pass is where the survival part begins. Mining and crafting are next on the list.',
+        web: shot('minecraft/15_creatures_at_night.jpg'),
+      },
+    ],
   },
 ];
 
-/**
- * Screenshot gallery, revealed when the player returns to base camp.
- * Drop an image into `public/shots/` and set `src` to its path to fill a slot;
- * a slot with `src: null` renders as an empty frame.
- */
-export const GALLERY = [
-  { id: 'brcrn-plantation', title: 'Plantation Monitoring System', project: 'BRCRN Project', src: null },
-  { id: 'brcrn-churia', title: 'Churia Knowledge Centre', project: 'BRCRN Project', src: null },
-  { id: 'synexis', title: 'Synexis CRM', project: 'Independent Build', src: null },
-  { id: 'yadverse', title: 'YADverse Studio', project: 'The Studio', src: null },
-  { id: 'fleet', title: 'YourFleetElite', project: 'Australia · Remote', src: null },
-  { id: 'brcrn-rag', title: 'AI / RAG Document Pipeline', project: 'BRCRN Project', src: null },
+/** Smaller things worth a look, straight from GitHub. */
+export const MORE_WORK = [
+  {
+    name: 'Churia Knowledge Centre',
+    text: 'Knowledge platform for the Ministry of Forests and Environment. Finds Chure research on government sites and classifies it with a local model, with a three reviewer publishing flow and a 3D map of the region.',
+    stack: 'Next.js · FastAPI · PostgreSQL · deck.gl · Ollama',
+    href: 'https://github.com/sakrit204-byte/churia-knowledge-center',
+  },
+  {
+    name: 'Accent Coach',
+    text: 'Speak into the mic and get an accent estimate across 23 classes plus pronunciation and fluency scores, all computed locally on a CPU.',
+    stack: 'Python · Whisper · WavLM · FastAPI',
+    href: 'https://github.com/sakrit204-byte/accentlearning_ml',
+  },
+  {
+    name: 'Python to C compiler',
+    text: 'A deterministic compiler for a subset of Python with a desktop IDE. A local model is consulted only for unknown calls, and its answer is used only if it compiles.',
+    stack: 'Python · Lexer, parser, codegen',
+    href: 'https://github.com/sakrit204-byte/aibased_language_translation_compiler',
+  },
+  {
+    name: 'Malhotra Enterprise',
+    text: 'Catalogue and enquiry platform for an architectural hardware business in Kathmandu, with manager and customer conversations mirrored over email.',
+    stack: 'Next.js · Prisma · PostgreSQL · Docker',
+    href: 'https://github.com/sakrit204-byte/malhotra_hardware',
+  },
 ];
 
-/** Hand-drawn ink routes between map nodes. */
-export const LINKS = [
-  ['home', 'yadverse'],
-  ['home', 'brcrn'],
-  ['home', 'synexis'],
-  ['home', 'hire'],
-  ['yadverse', 'synexis'],
-  ['yadverse', 'fleet'],
-  ['brcrn', 'fleet'],
-];
-
-/** ADDITIONAL SKILLS, framed as what a client is buying. */
-export const SERVICES = [
+export const EXPERIENCE = [
   {
-    title: 'Custom web apps & dashboards',
-    desc: 'Bespoke applications and internal dashboards, designed and built to fit how your team actually works.',
-    stack: 'React + Node/FastAPI + PostgreSQL',
-    glyph: 'M4 18h16M4 13h10M4 8h6',
+    role: 'Cofounder and engineer',
+    org: 'YADverse',
+    href: 'https://yadverse.tech',
+    place: 'Kathmandu, Nepal',
+    period: 'Jan 2025 to now',
+    points: [
+      'Cofounded a three person software studio that builds web apps, AI products and hosting for clients in Nepal and Australia.',
+      'Own frontend and backend architecture for client projects from scoping through to production.',
+      'Run reverse proxy hosting on studio managed servers, with services that restart themselves.',
+    ],
   },
   {
-    title: 'CRM & internal tools',
-    desc: 'Contact management, deal pipelines, and activity tracking with role-based access built in from day one.',
-    stack: 'Role-based access · pipelines · activity tracking',
-    glyph: 'M5 19V7l7-4 7 4v12M9 19v-6h6v6',
+    role: 'Full stack developer',
+    org: 'BRCRN Project, Government of Nepal',
+    place: 'Ministry of Agriculture, Forest and Environment',
+    period: 'May 2026 to Jul 2026',
+    points: [
+      'Delivered two production systems during a 50 day technical internship on a GCF and FAO funded project.',
+      'Built the Plantation Monitoring System: an Android field app and web portal on one database, loaded with baseline data for all 26 river systems.',
+      'Built the Churia Knowledge Centre, including a tool that finds, fetches and classifies ministry documents automatically.',
+    ],
   },
   {
-    title: 'WordPress sites',
-    desc: 'Production WordPress that stays fast — custom themes, integrated plugins, and real performance tuning.',
-    stack: 'Theme customisation · plugin integration · performance tuning',
-    glyph: 'M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c3 4 3 14 0 18',
-  },
-  {
-    title: 'REST API design & integration',
-    desc: 'Clean, documented APIs that other systems can actually consume — and integrations into the ones you already run.',
-    stack: 'Node/Express · FastAPI · JWT · RBAC',
-    glyph: 'M8 6l-5 6 5 6M16 6l5 6-5 6M14 4l-4 16',
-  },
-  {
-    title: 'AI / RAG integrations',
-    desc: 'Document ingestion pipelines and knowledge bases that find, classify, and surface your own data.',
-    stack: 'LangChain · LlamaIndex · Chroma · Pinecone',
-    glyph: 'M12 3v4m0 10v4M3 12h4m10 0h4M6 6l3 3m6 6l3 3m0-12l-3 3m-6 6l-3 3',
-  },
-  {
-    title: 'Server deployment & hosting',
-    desc: 'I ship it to production and keep it alive: reverse-proxy hosting, auto-start services, Linux administration.',
-    stack: 'Docker · GitHub Actions · reverse proxy · Linux admin',
-    glyph: 'M4 6h16v5H4zM4 13h16v5H4zM7 8.5h.01M7 15.5h.01',
+    role: 'WordPress developer',
+    org: 'YourFleetElite',
+    href: 'https://yourfleetelite.com.au/',
+    place: 'Sydney, Australia (remote)',
+    period: 'Contract',
+    points: ['Built and maintained the production site, improving speed and mobile layout.'],
   },
 ];
 
 export const SKILLS = [
-  { group: 'Languages', items: ['JavaScript', 'Python', 'HTML5', 'CSS3', 'C'] },
-  { group: 'Frontend', items: ['React.js', 'Next.js', 'Tailwind CSS', 'Flexbox', 'Grid', 'DOM Manipulation'] },
-  { group: 'Backend', items: ['Node.js', 'Express', 'FastAPI', 'REST APIs', 'JWT auth', 'RBAC'] },
-  { group: 'Databases', items: ['MySQL', 'PostgreSQL', 'Supabase', 'Prisma'] },
-  { group: 'DevOps', items: ['Docker', 'GitHub Actions', 'CI/CD', 'Reverse-Proxy Hosting', 'Linux Server Admin'] },
-  { group: 'CMS', items: ['WordPress', 'Theme customisation', 'Plugin integration', 'Production hosting'] },
-  { group: 'AI / RAG', items: ['LangChain', 'LlamaIndex', 'RAG Pipelines', 'Chroma', 'Pinecone'] },
-  { group: 'Mobile', items: ['Android (field app deployment)'] },
-  { group: 'Tools', items: ['Git', 'Postman', 'Figma', 'Vercel'] },
+  { group: 'Languages', items: ['JavaScript', 'TypeScript', 'Python', 'C#', 'C', 'SQL'] },
+  { group: 'Frontend', items: ['React', 'Next.js', 'Tailwind CSS', 'three.js', 'Framer Motion'] },
+  { group: 'Backend', items: ['Node.js', 'Express', 'FastAPI', 'REST APIs', 'JWT', 'Role based access'] },
+  { group: 'Data', items: ['PostgreSQL', 'MySQL', 'MongoDB', 'Supabase', 'Prisma'] },
+  { group: 'AI', items: ['RAG pipelines', 'LangChain', 'LlamaIndex', 'Ollama', 'MCP', 'Whisper'] },
+  { group: 'Ops', items: ['Docker', 'GitHub Actions', 'Linux servers', 'Reverse proxy hosting'] },
+  { group: 'Mobile and CMS', items: ['Android', 'Flutter', 'WordPress'] },
+  { group: 'Design', items: ['Figma', 'Blender', 'Interaction design'] },
 ];
 
 export const EDUCATION = [
   {
-    degree: 'B.Tech — Computer Science and Engineering',
-    detail: '3rd Year',
-    school: 'Vellore Institute of Technology (VIT)',
-    place: 'Vellore, Tamil Nadu, India',
-    period: '2024 – Present',
+    degree: 'B.Tech, Computer Science and Engineering',
+    school: 'Vellore Institute of Technology',
+    place: 'Vellore, India',
+    period: '2024 to now',
   },
   {
-    degree: 'Cambridge A Level',
-    detail: 'Physics, Mathematics, Computer Science',
+    degree: 'Cambridge A Level: Physics, Mathematics, Computer Science',
     school: 'Little Angels College',
     place: 'Kathmandu, Nepal',
-    period: '2021 – 2023',
+    period: '2021 to 2023',
   },
 ];
-
-/* ================================================================== */
-/* THE COURSE — the 3D scene is an infographic of this CV.             */
-/* Each flag is a CV section; route holograms carry the detail.        */
-/* Coordinates are world units on the island (x right, z toward cam).  */
-/* ================================================================== */
-
-const nodeStudy = (id) => NODES.find((n) => n.id === id).study;
-
-export const COURSE_FLAGS = [
-  {
-    id: 'profile',
-    kind: 'home',
-    x: 0,
-    z: 12,
-    label: 'Sakrit Kafle',
-    kicker: 'CLUBHOUSE',
-    study: nodeStudy('home'),
-  },
-  {
-    id: 'studio',
-    kind: 'studio',
-    x: -48,
-    z: -16,
-    label: 'The Studio',
-    kicker: 'YADVERSE',
-    study: nodeStudy('yadverse'),
-  },
-  {
-    id: 'work',
-    kind: 'gov',
-    x: 46,
-    z: -20,
-    label: 'Client Work',
-    kicker: 'SHIPPED TO PRODUCTION',
-    study: {
-      title: 'Client Work',
-      role: 'Government · Product · Remote contracts',
-      org: 'BRCRN · Synexis · YourFleetElite',
-      period: '2025 – 2026',
-      summary:
-        'Three very different clients — a government ministry, a from-scratch product, and an Australian fleet company — every one of them shipped to production and kept running.',
-      groups: [
-        {
-          title: 'BRCRN Project — Government of Nepal',
-          bullets: [
-            'Android field app + web admin portal sharing one database across the full plantation lifecycle, covering 26 river systems.',
-            'AI-driven RAG tool that autonomously fetches and classifies ministry documents for the Churia Knowledge Centre.',
-            "Deployed onto the Project's on-site Government server via reverse proxy without disturbing any live systems.",
-          ],
-        },
-        {
-          title: 'Synexis CRM — Independent build',
-          bullets: [
-            'Complete CRM from scratch: contact management, deal pipelines, activity logs, JWT authentication.',
-            'REST APIs in Node.js/Express on a relational MySQL schema with role-based access control.',
-          ],
-        },
-        {
-          title: 'YourFleetElite — Australia · Remote',
-          bullets: [
-            'Built and maintained the production WordPress site for a fleet management company.',
-            'Zero downtime across every live deployment, delivered across time zones.',
-          ],
-        },
-      ],
-      stack: ['Android', 'React', 'FastAPI', 'Node.js', 'MySQL', 'PostgreSQL', 'WordPress', 'RAG'],
-      metrics: [
-        { value: '26', label: 'river systems' },
-        { value: '0', label: 'downtime incidents' },
-        { value: '12+', label: 'products shipped' },
-      ],
-    },
-  },
-  {
-    id: 'skills',
-    kind: 'product',
-    x: -46,
-    z: 24,
-    label: 'Tech Skills',
-    kicker: 'THE STACK',
-    study: {
-      title: 'Technical Skills',
-      role: 'Full-stack + AI/RAG',
-      org: 'Battle-tested in production',
-      period: 'Everything here has shipped in something real',
-      summary: 'Not a tutorial list — each of these carried a live system for a paying client.',
-      groups: SKILLS.map((g) => ({ title: g.group, bullets: [g.items.join(' · ')] })),
-    },
-  },
-  {
-    id: 'services',
-    kind: 'client',
-    x: 46,
-    z: 22,
-    label: 'Services',
-    kicker: 'WHAT I BUILD FOR YOU',
-    study: {
-      title: 'What I can build for you',
-      role: 'Fixed scope · weekly demos · production handover',
-      org: 'Freelance · Worldwide',
-      period: 'Booking now',
-      summary: 'You talk to the person writing the code — no account managers, no handoffs.',
-      groups: SERVICES.map((sv) => ({ title: sv.title, bullets: [sv.desc, sv.stack] })),
-      cta: true,
-    },
-  },
-  {
-    id: 'education',
-    kind: 'client',
-    x: -4,
-    z: -42,
-    label: 'Education',
-    kicker: 'THE FUNDAMENTALS',
-    study: {
-      title: 'Education',
-      role: 'B.Tech CSE — VIT Vellore (3rd year)',
-      org: 'Vellore Institute of Technology',
-      period: '2021 – Present',
-      summary: 'Engineering fundamentals studied under a production workload — the degree and the client work run in parallel.',
-      groups: EDUCATION.map((e) => ({
-        title: e.degree,
-        bullets: [`${e.detail} · ${e.school}`, `${e.place} · ${e.period}`],
-      })),
-    },
-  },
-  {
-    id: 'hire',
-    kind: 'beacon',
-    x: 6,
-    z: 44,
-    label: 'Hire Me',
-    kicker: 'THE 19TH HOLE',
-    study: {
-      ...nodeStudy('hire'),
-      groups: [
-        {
-          title: 'References',
-          bullets: [
-            'Kausher Ahmed P — Assistant Professor, VIT Vellore · kauserahmed@vit.ac.in',
-            'Binod Gyawali — Planning and Monitoring Officer, BRCRN Project, Ministry of Agriculture, Forest and Environment, Government of Nepal',
-          ],
-        },
-      ],
-    },
-  },
-];
-
-export const COURSE_LINKS = [
-  ['profile', 'studio'],
-  ['profile', 'work'],
-  ['profile', 'skills'],
-  ['profile', 'services'],
-  ['profile', 'education'],
-  ['profile', 'hire'],
-  ['studio', 'skills'],
-  ['work', 'services'],
-];
-
-/** Large holograms along the routes — the fine print of the CV. */
-export const ROUTE_HOLOS = [
-  {
-    id: 'h-yad',
-    x: -24,
-    z: -2,
-    kind: 'studio',
-    kicker: 'THE STUDIO',
-    title: 'YADverse',
-    lines: ['12+ products · 3 countries · 99.9% uptime', 'Web apps, AI products & hosting infrastructure', 'Reverse-proxy hosting, zero-downtime deploys'],
-  },
-  {
-    id: 'h-brcrn',
-    x: 24,
-    z: -4,
-    kind: 'gov',
-    kicker: 'GOVERNMENT OF NEPAL',
-    title: 'Plantation Monitoring',
-    lines: ['Android field app + web portal, one database', '26 river systems · 48 LRPs · 3 PPMUs', 'Running on a live government server'],
-  },
-  {
-    id: 'h-churia',
-    x: 38,
-    z: -36,
-    kind: 'gov',
-    kicker: 'AI / RAG',
-    title: 'Churia Knowledge Centre',
-    lines: ['RAG pipeline over ministry repositories', 'Auto-fetches & classifies documents', 'Journals · technical reports · pamphlets'],
-  },
-  {
-    id: 'h-synexis',
-    x: 30,
-    z: 14,
-    kind: 'product',
-    kicker: 'INDEPENDENT BUILD',
-    title: 'Synexis CRM',
-    lines: ['Contacts, pipelines, activity logs', 'JWT auth + role-based access', 'Node/Express · MySQL · REST'],
-  },
-  {
-    id: 'h-fleet',
-    x: 52,
-    z: 2,
-    kind: 'client',
-    kicker: 'AUSTRALIA · REMOTE',
-    title: 'YourFleetElite',
-    lines: ['Production WordPress, kept fast', 'Zero downtime on live deploys', 'Delivered across time zones'],
-  },
-  {
-    id: 'h-front',
-    x: -26,
-    z: 18,
-    kind: 'product',
-    kicker: 'FRONTEND',
-    title: 'React & Next.js',
-    lines: ['React.js · Next.js · Tailwind CSS', 'Flexbox · Grid · DOM manipulation'],
-  },
-  {
-    id: 'h-back',
-    x: -40,
-    z: 4,
-    kind: 'studio',
-    kicker: 'BACKEND',
-    title: 'APIs that hold up',
-    lines: ['Node.js · Express · FastAPI', 'REST · JWT auth · RBAC'],
-  },
-  {
-    id: 'h-ai',
-    x: -18,
-    z: -32,
-    kind: 'gov',
-    kicker: 'AI / RAG',
-    title: 'Retrieval pipelines',
-    lines: ['LangChain · LlamaIndex', 'Chroma · Pinecone', 'Document ingestion → knowledge bases'],
-  },
-  {
-    id: 'h-edu',
-    x: 6,
-    z: -30,
-    kind: 'client',
-    kicker: 'EDUCATION',
-    title: 'VIT Vellore',
-    lines: ['B.Tech CSE — 3rd year', 'Cambridge A Levels — Physics, Maths, CS'],
-  },
-  {
-    id: 'h-flow',
-    x: 2,
-    z: 32,
-    kind: 'beacon',
-    kicker: 'HOW WE WORK',
-    title: 'A simple process',
-    lines: ['Discovery call → fixed scope', 'Weekly demos → production handover', 'You talk to the person coding'],
-  },
-];
-
-/** Facts unlocked by playing the course games. */
-export const COURSE_FACTS = {
-  devops: { title: 'DevOps unlocked', text: 'Docker · GitHub Actions · CI/CD · Reverse-proxy · Linux admin' },
-  db: { title: 'Databases unlocked', text: 'MySQL · PostgreSQL · Supabase · Prisma' },
-  langs: { title: 'Languages unlocked', text: 'JavaScript · Python · HTML5 · CSS3 · C' },
-  tools: { title: 'Toolbelt unlocked', text: 'Git · Postman · Figma · Vercel' },
-  home: { title: 'Home base', text: 'Bhaktapur, Nepal — shipping across every time zone' },
-  crates: { title: 'Zero-downtime unlocked', text: 'Studio infra: reverse-proxy hosting · 99.9% uptime · auto-restart services' },
-  cones: { title: 'Remote-ready unlocked', text: 'Clients across Nepal, Australia & beyond — async, across time zones' },
-};
 
 export const REFERENCES = [
-  {
-    name: 'Kausher Ahmed P',
-    title: 'Assistant Professor, VIT Vellore',
-    email: 'kauserahmed@vit.ac.in',
-    phone: '+91-9942992332',
-  },
+  { name: 'Kausher Ahmed P', title: 'Assistant Professor, VIT Vellore', contact: 'kauserahmed@vit.ac.in' },
   {
     name: 'Binod Gyawali',
-    title:
-      'Planning and Monitoring Officer, BRCRN Project, Ministry of Agriculture, Forest and Environment, Government of Nepal',
+    title: 'Planning and Monitoring Officer, BRCRN Project, Ministry of Agriculture, Forest and Environment',
+  },
+];
+
+/** What each hole of the course opens. Geometry lives in three/course.js. */
+export const HOLES = [
+  {
+    title: 'Hello',
+    text: 'I’m Sakrit, a full stack and AI engineer from Bhaktapur, Nepal.',
+    link: { label: 'About me', href: '#about' },
+  },
+  {
+    title: 'The studio',
+    text: 'I cofounded YADverse, a small studio building web apps, AI products and hosting.',
+    link: { label: 'Experience', href: '#experience' },
+  },
+  {
+    title: 'Agents with guardrails',
+    text: 'Okta Access Airlock lets AI agents manage access, and refuses when the world has changed.',
+    link: { label: 'See the project', href: '#airlock' },
+  },
+  {
+    title: 'Government work',
+    text: 'A plantation monitoring system for 26 river systems, running on a government server.',
+    link: { label: 'See the project', href: '#plantation' },
+  },
+  {
+    title: 'Clubhouse',
+    text: 'That’s the round. If you have something to build, I’d like to hear about it.',
+    link: { label: 'Get in touch', href: '#contact' },
   },
 ];

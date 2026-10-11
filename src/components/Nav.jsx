@@ -1,104 +1,76 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CONTACT } from '../data/cv';
 import s from './nav.module.css';
 
 const LINKS = [
   { href: '#work', label: 'Work' },
-  { href: '#services', label: 'Services' },
-  { href: '#stack', label: 'Stack' },
+  { href: '#experience', label: 'Experience' },
   { href: '#about', label: 'About' },
+  { href: '#contact', label: 'Contact' },
 ];
 
 export default function Nav() {
   const [lifted, setLifted] = useState(false);
   const [open, setOpen] = useState(false);
-  const barRef = useRef(null);
 
   useEffect(() => {
-    const onScroll = () => {
-      setLifted(window.scrollY > 24);
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      const p = max > 0 ? window.scrollY / max : 0;
-      barRef.current?.style.setProperty('transform', `scaleX(${p})`);
-    };
+    const onScroll = () => setLifted(window.scrollY > 24);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // The mobile sheet owns the scroll while it's open.
   useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : '';
+    if (!open) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKey);
     };
   }, [open]);
 
   return (
-    <header className={s.bar} data-lifted={lifted || undefined}>
+    <header className={s.bar} data-lifted={lifted || undefined} data-open={open || undefined}>
       <div className={s.inner}>
-        <a href="#top" className={s.brand}>
-          <span className={s.mark} aria-hidden="true" />
-          <span className={s.brandText}>
-            <strong>Sakrit Kafle</strong>
-            <em>Full-Stack Developer</em>
-          </span>
+        <a href="#top" className={s.brand} onClick={() => setOpen(false)}>
+          Sakrit Kafle
         </a>
 
         <nav className={s.links} aria-label="Sections">
           {LINKS.map((l) => (
-            <a key={l.href} href={l.href} className={s.link}>
+            <a key={l.href} href={l.href}>
               {l.label}
             </a>
           ))}
         </nav>
 
-        <div className={s.right}>
-          <span className={s.status}>
-            <i className={s.pulse} aria-hidden="true" />
-            Available
-          </span>
-          <a className={s.cv} href={CONTACT.cvHref} download={CONTACT.cvFile}>
-            CV <span aria-hidden="true">↓</span>
-          </a>
-          <a className={s.cta} href="#contact">
-            Hire me
-          </a>
-          <button
-            className={s.burger}
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            aria-label={open ? 'Close menu' : 'Open menu'}
-          >
-            <span data-open={open || undefined} />
-          </button>
-        </div>
+        <a className={s.cv} href={CONTACT.cvHref} download={CONTACT.cvFile}>
+          Download CV
+        </a>
+
+        <button
+          className={s.burger}
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls="menu"
+          aria-label={open ? 'Close menu' : 'Open menu'}
+        >
+          <span />
+        </button>
       </div>
 
-      {open && (
-        <div className={s.sheet}>
-          {LINKS.map((l) => (
-            <a key={l.href} href={l.href} onClick={() => setOpen(false)}>
-              {l.label}
-            </a>
-          ))}
-          <a href="#contact" onClick={() => setOpen(false)}>
-            Contact
+      <div className={s.sheet} id="menu" hidden={!open}>
+        {LINKS.map((l) => (
+          <a key={l.href} href={l.href} onClick={() => setOpen(false)}>
+            {l.label}
           </a>
-          <a href={CONTACT.cvHref} download={CONTACT.cvFile} onClick={() => setOpen(false)}>
-            Download CV ↓
-          </a>
-          <a href={CONTACT.githubHref} target="_blank" rel="noreferrer">
-            GitHub ↗
-          </a>
-        </div>
-      )}
-
-      <span className={s.progress} ref={barRef} aria-hidden="true" />
+        ))}
+        <a href={CONTACT.cvHref} download={CONTACT.cvFile} onClick={() => setOpen(false)}>
+          Download CV
+        </a>
+      </div>
     </header>
   );
 }

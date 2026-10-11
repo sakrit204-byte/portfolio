@@ -16,24 +16,3 @@ export default function Reveal({ children, as = 'div', delay = 0, y = 26, classN
     </M>
   );
 }
-
-/** Section heading: serif title + optional hand-written aside. */
-export function Heading({ title, aside, lead }) {
-  return (
-    <header style={{ maxWidth: '58ch' }}>
-      {aside && (
-        <Reveal as="p" className="secAside">
-          {aside}
-        </Reveal>
-      )}
-      <Reveal as="h2" className="secTitle" delay={0.06}>
-        {title}
-      </Reveal>
-      {lead && (
-        <Reveal as="p" className="secLead" delay={0.12}>
-          {lead}
-        </Reveal>
-      )}
-    </header>
-  );
-}

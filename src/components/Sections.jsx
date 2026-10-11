@@ -1,240 +1,66 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import Reveal, { Heading } from './Reveal';
-import { CONTACT, EDUCATION, NODES, PROFILE, REFERENCES, SERVICES, SKILLS, STATS } from '../data/cv';
+import { useState } from 'react';
+import { CONTACT, EDUCATION, EXPERIENCE, MORE_WORK, PROFILE, PROJECTS, REFERENCES, SKILLS } from '../data/cv';
+import Reveal from './Reveal';
+import Showcase from './Showcase';
 import s from './sections.module.css';
 
-const CASE_IDS = ['brcrn', 'yadverse', 'synexis', 'fleet'];
-
-/** Counts a stat up when it scrolls into view. Non-numeric values pass through. */
-function CountUp({ value }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-15%' });
-  const calm = useReducedMotion();
-  const parts = /^([\d.]+)(.*)$/.exec(value);
-  const [shown, setShown] = useState(parts ? '0' : value);
-
-  useEffect(() => {
-    if (!parts || !inView) return;
-    const end = parseFloat(parts[1]);
-    const decimals = (parts[1].split('.')[1] ?? '').length;
-    if (calm) {
-      setShown(end.toFixed(decimals));
-      return;
-    }
-    const DURATION = 1100;
-    let raf = 0;
-    let start = 0;
-    const tick = (now) => {
-      if (!start) start = now;
-      const t = Math.min((now - start) / DURATION, 1);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setShown((end * eased).toFixed(decimals));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [inView, calm, parts?.[1]]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (!parts) return <span ref={ref}>{value}</span>;
+function Heading({ eyebrow, title, lead }) {
   return (
-    <span ref={ref}>
-      {shown}
-      {parts[2]}
-    </span>
+    <header className={s.heading}>
+      <Reveal as="p" className="eyebrow">
+        {eyebrow}
+      </Reveal>
+      <Reveal as="h2" className="h2" delay={0.05}>
+        {title}
+      </Reveal>
+      {lead && (
+        <Reveal as="p" className="lead" delay={0.1}>
+          {lead}
+        </Reveal>
+      )}
+    </header>
   );
 }
 
-/* ------------------------------------------------------------------ */
-
-export function Stats() {
+export function Work() {
   return (
-    <section className={s.statsBand} aria-label="At a glance">
-      <div className={s.statsInner}>
-        {STATS.map((st, i) => (
-          <Reveal key={st.label} className={s.stat} delay={i * 0.07}>
-            <strong>
-              <CountUp value={st.value} />
-            </strong>
-            <span>{st.label}</span>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-function CaseCard({ n, onOpen }) {
-  return (
-    <button className={s.caseCard} data-kind={n.kind} onClick={() => onOpen(n)}>
-      <span className={s.caseTop}>
-        <span className={s.caseKicker}>{n.kicker}</span>
-        <span className={s.casePeriod}>{n.study.period}</span>
-      </span>
-
-      <h3 className={s.caseTitle}>{n.study.title}</h3>
-      <p className={s.caseRole}>{n.study.role}</p>
-      <p className={s.caseDesc}>{n.study.summary}</p>
-
-      <span className={s.caseChips}>
-        {n.study.stack.slice(0, 4).map((t) => (
-          <span key={t}>{t}</span>
-        ))}
-        {n.study.stack.length > 4 && <span>+{n.study.stack.length - 4}</span>}
-      </span>
-
-      <span className={s.caseOpen}>
-        Read case study <i aria-hidden="true">→</i>
-      </span>
-    </button>
-  );
-}
-
-/**
- * Work: a pinned horizontal rail. Scrolling the page drives the cards
- * sideways; the shift is measured from the real track width so it works
- * at every viewport. Falls back to a grid under prefers-reduced-motion.
- */
-export function Work({ onOpen }) {
-  const cases = CASE_IDS.map((id) => NODES.find((n) => n.id === id)).filter(Boolean);
-  const calm = useReducedMotion();
-  const ref = useRef(null);
-  const trackRef = useRef(null);
-  const [shift, setShift] = useState(0);
-
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] });
-  const x = useTransform(scrollYProgress, [0.03, 0.97], [0, -shift]);
-
-  useEffect(() => {
-    if (calm) return;
-    const track = trackRef.current;
-    if (!track) return;
-    const measure = () =>
-      setShift(Math.max(0, track.scrollWidth - track.parentElement.clientWidth + 40));
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(track);
-    window.addEventListener('resize', measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, [calm]);
-
-  if (calm) {
-    return (
-      <section className={s.section} id="work">
-        <div className={s.wrap}>
-          <Heading aside="click any card" title="Shipped to production, and kept running." />
-          <div className={s.caseGrid}>
-            {cases.map((n) => (
-              <CaseCard key={n.id} n={n} onOpen={onOpen} />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className={s.workPin} id="work" ref={ref}>
-      <div className={s.workSticky}>
-        <div className={s.wrap}>
-          <Heading
-            aside="keep scrolling — the rail drives"
-            title="Shipped to production, and kept running."
-          />
-        </div>
-        <motion.div className={s.workTrack} ref={trackRef} style={{ x }}>
-          {cases.map((n) => (
-            <div key={n.id} className={s.railItem}>
-              <CaseCard n={n} onOpen={onOpen} />
-            </div>
-          ))}
-          <a className={s.railCta} href="#contact">
-            <span>Your project</span>
-            <strong>
-              goes here <i aria-hidden="true">→</i>
-            </strong>
-          </a>
-        </motion.div>
-        <div className={s.railProgress} aria-hidden="true">
-          <motion.i style={{ scaleX: scrollYProgress }} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-function DeckCard({ sv, i, total, progress }) {
-  // Cards pin at the same spot and stack; earlier cards shrink away
-  // as later ones scroll over them.
-  const scale = useTransform(progress, [i / total, 1], [1, 1 - (total - i) * 0.045]);
-  const fade = useTransform(progress, [i / total, Math.min(1, (i + 2.2) / total)], [1, 0.55]);
-
-  return (
-    <div className={s.deckSlot}>
-      <motion.article className={s.deckCard} style={{ scale, opacity: fade, top: `calc(var(--nav-h) + ${28 + i * 22}px)` }}>
-        <span className={s.deckIndex}>{String(i + 1).padStart(2, '0')}</span>
-        <span className={s.serviceIcon} aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="24" height="24">
-            <path d={sv.glyph} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-        <h3>{sv.title}</h3>
-        <p>{sv.desc}</p>
-        <p className={s.serviceStack}>{sv.stack}</p>
-      </motion.article>
-    </div>
-  );
-}
-
-/** Services: a scroll-stacking deck — each card pins and the next slides over it. */
-export function Services() {
-  const calm = useReducedMotion();
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] });
-
-  if (calm) {
-    return (
-      <section className={s.section} id="services">
-        <div className={s.wrap}>
-          <Heading aside="what you're buying" title="What I can build for you." />
-          <div className={s.serviceGrid}>
-            {SERVICES.map((sv) => (
-              <article key={sv.title} className={s.service}>
-                <span className={s.serviceIcon} aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="22" height="22">
-                    <path d={sv.glyph} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-                <h3>{sv.title}</h3>
-                <p>{sv.desc}</p>
-                <p className={s.serviceStack}>{sv.stack}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className={s.section} id="services" ref={ref}>
-      <div className={s.wrap}>
+    <section id="work" className={s.work}>
+      <div className="wrap">
         <Heading
-          aside="scroll — the deck stacks"
-          title="What I can build for you."
-          lead="Fixed scope, weekly demos, and a production handover you actually own. No account managers — you talk to the person writing the code."
+          eyebrow="Selected work"
+          title="Real products, used by real teams."
+          lead="Each of these is live or in use. Scroll through them the way their users do."
         />
+      </div>
+      {PROJECTS.map((p, i) => (
+        <Showcase key={p.id} project={p} index={i} />
+      ))}
+    </section>
+  );
+}
 
-        <div className={s.deck}>
-          {SERVICES.map((sv, i) => (
-            <DeckCard key={sv.title} sv={sv} i={i} total={SERVICES.length} progress={scrollYProgress} />
+export function MoreWork() {
+  return (
+    <section className={`section ${s.more}`} aria-labelledby="more-title">
+      <div className="wrap">
+        <header className={s.moreHead}>
+          <h2 id="more-title" className={s.h3}>
+            More on GitHub
+          </h2>
+          <a className={s.textLink} href={CONTACT.githubHref} target="_blank" rel="noreferrer">
+            {CONTACT.github} <span aria-hidden="true">↗</span>
+          </a>
+        </header>
+        <div className={s.cards}>
+          {MORE_WORK.map((w, i) => (
+            <Reveal as="a" key={w.name} className={s.card} href={w.href} target="_blank" rel="noreferrer" delay={i * 0.05}>
+              <h3>{w.name}</h3>
+              <p>{w.text}</p>
+              <span className={s.cardStack}>{w.stack}</span>
+              <span className={s.cardGo} aria-hidden="true">
+                ↗
+              </span>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -242,193 +68,179 @@ export function Services() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-
-export function Stack() {
-  const [active, setActive] = useState(SKILLS[0].group);
-  const current = SKILLS.find((g) => g.group === active) ?? SKILLS[0];
-
+export function Experience() {
   return (
-    <section className={s.section} id="stack">
-      <div className={s.wrap}>
-        <Heading title="The tools, honestly assessed." lead="Everything here has shipped in something real — not a tutorial." />
-
-        <div className={s.stackBox}>
-          <div className={s.stackTabs} role="tablist" aria-label="Skill groups">
-            {SKILLS.map((g) => (
-              <button
-                key={g.group}
-                role="tab"
-                aria-selected={active === g.group}
-                className={s.stackTab}
-                data-on={active === g.group || undefined}
-                onClick={() => setActive(g.group)}
-              >
-                {g.group}
-                <i>{g.items.length}</i>
-              </button>
-            ))}
-          </div>
-
-          <div className={s.stackPanel} role="tabpanel">
-            {current.items.map((item, i) => (
-              <motion.span
-                key={`${current.group}-${item}`}
-                className={s.stackChip}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.035, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {item}
-              </motion.span>
-            ))}
-          </div>
-        </div>
+    <section id="experience" className="section">
+      <div className="wrap">
+        <Heading eyebrow="Experience" title="Where I’ve been building." />
+        <ol className={s.timeline}>
+          {EXPERIENCE.map((x) => (
+            <Reveal as="li" key={x.org} className={s.job}>
+              <p className={s.when}>{x.period}</p>
+              <div>
+                <h3 className={s.jobRole}>
+                  {x.role},{' '}
+                  {x.href ? (
+                    <a href={x.href} target="_blank" rel="noreferrer">
+                      {x.org}
+                    </a>
+                  ) : (
+                    x.org
+                  )}
+                </h3>
+                <p className={s.where}>{x.place}</p>
+                <ul className={s.points}>
+                  {x.points.map((pt) => (
+                    <li key={pt}>{pt}</li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          ))}
+        </ol>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
+export function Skills() {
+  return (
+    <section id="skills" className={s.band}>
+      <div className="wrap">
+        <header className={s.heading}>
+          <Reveal as="p" className={`eyebrow ${s.onDeep}`}>
+            Toolbox
+          </Reveal>
+          <Reveal as="h2" className="h2" delay={0.05}>
+            What I reach for, and have shipped with.
+          </Reveal>
+        </header>
+        <dl className={s.skills}>
+          {SKILLS.map((g, i) => (
+            <Reveal key={g.group} className={s.skill} delay={(i % 4) * 0.04}>
+              <dt>{g.group}</dt>
+              <dd>{g.items.join(', ')}</dd>
+            </Reveal>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
 
 export function About() {
   return (
-    <section className={s.section} id="about">
-      <div className={s.wrap}>
-        <div className={s.aboutGrid}>
-          <div>
-            <Heading title="Profile." />
-            <Reveal as="p" className={s.aboutLead} delay={0.08}>
-              {PROFILE.summary}
+    <section id="about" className="section">
+      <div className={`wrap ${s.about}`}>
+        <Reveal className={s.portrait}>
+          <img src="/profile.jpg" alt="Sakrit Kafle" width="480" height="600" loading="lazy" />
+          <span className={`sayTag ${s.portraitTag}`}>{PROFILE.location}</span>
+        </Reveal>
+        <div>
+          <Heading eyebrow="About" title="Engineer first, designer by habit." />
+          {PROFILE.about.map((p) => (
+            <Reveal as="p" key={p.slice(0, 20)} className={s.aboutText}>
+              {p}
             </Reveal>
-            <Reveal as="p" className={s.aboutBody} delay={0.14}>
-              {PROFILE.summaryRest}
-            </Reveal>
+          ))}
 
-            <Reveal className={s.eduBlock} delay={0.2}>
-              <h3 className={s.subhead}>Education</h3>
-              {EDUCATION.map((e) => (
-                <div key={e.degree} className={s.edu}>
-                  <div className={s.eduHead}>
+          <div className={s.facts}>
+            <div>
+              <h3 className={s.factTitle}>Education</h3>
+              <ul>
+                {EDUCATION.map((e) => (
+                  <li key={e.degree}>
                     <strong>{e.degree}</strong>
-                    <span className={s.eduPeriod}>{e.period}</span>
-                  </div>
-                  <p>
-                    {e.detail} · {e.school}
-                  </p>
-                  <p className={s.eduPlace}>{e.place}</p>
-                </div>
-              ))}
-            </Reveal>
+                    <span>
+                      {e.school}, {e.place}. {e.period}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className={s.factTitle}>References</h3>
+              <ul>
+                {REFERENCES.map((r) => (
+                  <li key={r.name}>
+                    <strong>{r.name}</strong>
+                    <span>
+                      {r.title}
+                      {r.contact && (
+                        <>
+                          , <a href={`mailto:${r.contact}`}>{r.contact}</a>
+                        </>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-
-          <Reveal className={s.aboutSide} delay={0.12}>
-            <figure className={s.portrait}>
-              <img src="/profile.jpg" alt={`${PROFILE.name}, full-stack developer`} width="480" height="480" loading="lazy" />
-              <figcaption>{PROFILE.location}</figcaption>
-            </figure>
-
-            <h3 className={s.subhead}>References</h3>
-            <ul className={s.refs}>
-              {REFERENCES.map((r) => (
-                <li key={r.name}>
-                  <strong>{r.name}</strong>
-                  <span>{r.title}</span>
-                  {r.email && (
-                    <a href={`mailto:${r.email}`} className={s.refLink}>
-                      {r.email}
-                    </a>
-                  )}
-                  {r.phone && <span className={s.refPhone}>{r.phone}</span>}
-                </li>
-              ))}
-            </ul>
-          </Reveal>
         </div>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 export function Contact() {
   const [copied, setCopied] = useState(false);
-
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(CONTACT.email);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard blocked (insecure context / denied) — the mailto link still works.
+      window.location.href = `mailto:${CONTACT.email}`;
     }
   };
 
   return (
-    <section className={s.contact} id="contact">
-      <div className={s.wrap}>
-        <Reveal as="p" className={s.contactKicker}>
-          <i className={s.contactDot} aria-hidden="true" />
-          {PROFILE.available}
+    <section id="contact" className={`section ${s.contact}`}>
+      <div className="wrap">
+        <Reveal as="p" className="eyebrow">
+          Contact
+        </Reveal>
+        <Reveal as="h2" className={s.contactTitle} delay={0.05}>
+          Have something worth building?
+        </Reveal>
+        <Reveal as="p" className="lead" delay={0.1}>
+          Tell me what you are working on and where you are stuck. Email is the quickest way to reach me.
         </Reveal>
 
-        <Reveal as="h2" className={s.contactTitle} delay={0.06}>
-          Have something that needs
-          <br />
-          building <em>properly</em>?
-        </Reveal>
-
-        <Reveal as="p" className={s.contactLead} delay={0.12}>
-          Tell me the problem, not the spec. I’ll come back with scope, a timeline, and a fixed price — usually within a day.
-        </Reveal>
-
-        <Reveal className={s.contactActions} delay={0.18}>
-          <a className={s.contactPrimary} href={`mailto:${CONTACT.email}`}>
-            {CONTACT.email}
-          </a>
-          <button className={s.contactGhost} onClick={copy} aria-live="polite">
-            {copied ? 'Copied ✓' : 'Copy address'}
+        <Reveal className={s.mail} delay={0.12}>
+          <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
+          <button className={s.copy} onClick={copy}>
+            {copied ? 'Copied' : 'Copy'}
           </button>
-          <a className={s.contactGhost} href={CONTACT.phoneHref}>
-            {CONTACT.phone}
-          </a>
-          <a className={s.contactGhost} href={CONTACT.cvHref} download={CONTACT.cvFile}>
-            Download CV ↓
-          </a>
         </Reveal>
 
-        <Reveal className={s.contactLinks} delay={0.24}>
-          {[
-            { label: 'GitHub', value: CONTACT.github, href: CONTACT.githubHref },
-            { label: 'Portfolio', value: CONTACT.site, href: CONTACT.siteHref },
-            { label: 'Studio', value: CONTACT.studio, href: CONTACT.studioHref },
-          ].map((l) => (
-            <a key={l.label} href={l.href} target="_blank" rel="noreferrer">
-              <span>{l.label}</span>
-              <strong>
-                {l.value} <i aria-hidden="true">↗</i>
-              </strong>
-            </a>
-          ))}
+        <Reveal className={s.channels} delay={0.16}>
+          <a href={CONTACT.phoneHref}>{CONTACT.phone}</a>
+          <a href={CONTACT.githubHref} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          <a href={CONTACT.youtubeHref} target="_blank" rel="noreferrer">
+            YouTube
+          </a>
+          <a href={CONTACT.studioHref} target="_blank" rel="noreferrer">
+            YADverse
+          </a>
+          <a href={CONTACT.cvHref} download={CONTACT.cvFile}>
+            Download CV
+          </a>
         </Reveal>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 export function Footer() {
   return (
     <footer className={s.footer}>
-      <div className={s.wrap}>
-        <div className={s.footInner}>
-          <p>
-            © {new Date().getFullYear()} {PROFILE.name} · Built in Bhaktapur, deployed everywhere.
-          </p>
-          <a href="#top">Back to the map ↑</a>
-        </div>
+      <div className={`wrap ${s.footerInner}`}>
+        <span>© {new Date().getFullYear()} Sakrit Kafle</span>
+        <a href="#top">Back to the first tee</a>
       </div>
     </footer>
   );
