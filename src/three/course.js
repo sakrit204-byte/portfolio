@@ -523,6 +523,79 @@ function makeCart() {
   return { group: g, body, wheels };
 }
 
+/** Draw a hole's image and caption onto a board face; the image streams in. */
+function boardTexture(board, n, accent) {
+  const W = 1024;
+  const H = 700;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d');
+  const IMG_H = 560;
+  const draw = (img) => {
+    g.fillStyle = '#f4efe6';
+    g.fillRect(0, 0, W, H);
+    if (img) {
+      // cover the top area, anchored to the top of the image (headers matter)
+      const scale = Math.max(W / img.width, IMG_H / img.height);
+      const dw = img.width * scale;
+      g.drawImage(img, (W - dw) / 2, 0, dw, img.height * scale);
+    } else {
+      g.fillStyle = '#e4dccd';
+      g.fillRect(0, 0, W, IMG_H);
+    }
+    g.fillStyle = '#0b2a33';
+    g.fillRect(0, IMG_H, W, H - IMG_H);
+    g.fillStyle = accent;
+    g.fillRect(0, IMG_H, 14, H - IMG_H);
+    g.fillStyle = '#9fb7ba';
+    g.font = '700 30px "Plus Jakarta Sans", Arial, sans-serif';
+    g.fillText(`HOLE ${n}  ·  ${board.title.toUpperCase()}`, 48, IMG_H + 52);
+    g.fillStyle = '#f4efe6';
+    g.font = '700 46px "PT Sans", Arial, sans-serif';
+    g.fillText(board.caption, 48, IMG_H + 108);
+  };
+  draw(null);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  if (board.image) {
+    const img = new Image();
+    img.onload = () => {
+      draw(img);
+      t.needsUpdate = true;
+    };
+    img.src = board.image;
+  }
+  return t;
+}
+
+/** A framed display on two posts, the way courses show a hole's layout. */
+function makeBoard(board, n, accent) {
+  const g = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a2a30, roughness: 0.55, metalness: 0.2 });
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x6b4f35, roughness: 0.9 });
+  const BW = 6.4;
+  const BH = 4.375;
+  for (const sx of [-BW / 2 + 0.35, BW / 2 - 0.35]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.6, 0.22), postMat);
+    post.position.set(sx, 1.3, -0.12);
+    post.castShadow = true;
+    g.add(post);
+  }
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(BW + 0.3, BH + 0.3, 0.2), frameMat);
+  frame.position.set(0, 1.9 + BH / 2, -0.12);
+  frame.castShadow = true;
+  g.add(frame);
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(BW, BH),
+    new THREE.MeshStandardMaterial({ map: boardTexture(board, n, accent), roughness: 0.7 }),
+  );
+  face.position.set(0, 1.9 + BH / 2, 0);
+  g.add(face);
+  return g;
+}
+
 function makeBall() {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -549,7 +622,7 @@ function makeBall() {
 
 /* ------------------------------------------------------------------ */
 
-export function createCourse(canvas, { theme, calm, onEvent }) {
+export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(theme.horizon, 1);
@@ -681,6 +754,32 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
     scene.add(makeBench(bx, bz, yaw));
     addStatic(bx, bz, 1.1);
   }
+
+  // a display board beside each green, turned to face the tee
+  LAYOUT.forEach((h, i) => {
+    const board = boards[i];
+    if (!board) return;
+    const [cx, cz] = h.cup;
+    const dx = cx - h.tee[0];
+    const dz = cz - h.tee[1];
+    const len = Math.hypot(dx, dz);
+    // beside the green, on the side away from the island centre
+    let px = -dz / len;
+    let pz = dx / len;
+    if (px * cx + pz * cz < 0) {
+      px = -px;
+      pz = -pz;
+    }
+    const bx = cx + px * (GREEN_R + 3.2) - (dx / len) * 1.5;
+    const bz = cz + pz * (GREEN_R + 3.2) - (dz / len) * 1.5;
+    const b = makeBoard(board, i + 1, theme.flag);
+    b.position.set(bx, groundHeight(bx, bz), bz);
+    b.rotation.y = Math.atan2(h.tee[0] - bx, h.tee[1] - bz);
+    scene.add(b);
+    const rx = Math.cos(b.rotation.y);
+    const rz = -Math.sin(b.rotation.y);
+    for (const k of [-1, 0, 1]) addStatic(bx + rx * 2.6 * k, bz + rz * 2.6 * k, 0.45);
+  });
 
   const golfers = [
     [10, 36, 1.7],

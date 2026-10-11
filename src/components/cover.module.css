@@ -1,0 +1,131 @@
+.cover {
+  margin: -24px -24px 6px;
+  border-radius: var(--r-l) var(--r-l) 0 0;
+  overflow: hidden;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.6s var(--ease);
+}
+a:hover .svg {
+  transform: scale(1.04);
+}
+
+/* map */
+[data-kind='map'] .bg {
+  fill: #dcebe4;
+}
+.contours {
+  fill: none;
+  stroke: rgba(11, 42, 51, 0.16);
+  stroke-width: 1.2;
+}
+.river,
+.riverThin {
+  fill: none;
+  stroke: #3e9c96;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.riverThin {
+  stroke-width: 1.8;
+}
+.pin path {
+  fill: var(--ember);
+}
+.pin circle {
+  fill: #fff;
+}
+.chip {
+  fill: var(--ink);
+}
+.chipText {
+  font: 700 11px var(--sans);
+  fill: var(--paper);
+}
+
+/* wave */
+[data-kind='wave'] .bg {
+  fill: #f1e5d4;
+}
+.bars rect {
+  fill: var(--teal);
+  opacity: 0.8;
+}
+.bars rect:nth-child(3n) {
+  fill: var(--ember);
+}
+.mono {
+  font: 600 13px var(--mono);
+  fill: var(--ink-2);
+}
+.ringTrack,
+.ringValue {
+  fill: none;
+  stroke-width: 4;
+}
+.ringTrack {
+  stroke: rgba(11, 42, 51, 0.12);
+}
+.ringValue {
+  stroke: var(--teal);
+  stroke-linecap: round;
+}
+
+/* code */
+[data-kind='code'] .bg {
+  fill: var(--deep-2);
+}
+.pane {
+  fill: rgba(255, 255, 255, 0.05);
+  stroke: rgba(255, 255, 255, 0.1);
+}
+.tag {
+  font: 700 10px var(--mono);
+  fill: #6fd3c5;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.code {
+  font: 500 10.5px var(--mono);
+  fill: var(--on-deep);
+}
+.kw {
+  fill: var(--sun);
+}
+.arrow {
+  fill: none;
+  stroke: var(--ember);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* catalogue */
+[data-kind='catalogue'] .bg {
+  fill: #ece4d6;
+}
+.tile {
+  fill: var(--card);
+  stroke: var(--line);
+}
+.part,
+.part rect {
+  fill: #a7adb2;
+}
+.bubbleA {
+  fill: var(--card);
+  stroke: var(--line);
+}
+.bubbleB {
+  fill: var(--teal);
+}
+.line {
+  fill: var(--line);
+}
+.lineDark {
+  fill: rgba(255, 255, 255, 0.7);
+}

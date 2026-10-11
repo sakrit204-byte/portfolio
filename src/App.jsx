@@ -1,5 +1,6 @@
 import Nav from './components/Nav';
 import Hero from './components/Hero';
+import Backdrop from './components/Backdrop';
 import { About, Contact, Experience, Footer, MoreWork, Skills, Work } from './components/Sections';
 
 export default function App() {
@@ -11,12 +12,15 @@ export default function App() {
       <Nav />
       <main>
         <Hero />
-        <Work />
-        <MoreWork />
-        <Experience />
-        <Skills />
-        <About />
-        <Contact />
+        <div className="page">
+          <Backdrop />
+          <Work />
+          <MoreWork />
+          <Experience />
+          <Skills />
+          <About />
+          <Contact />
+        </div>
       </main>
       <Footer />
     </>

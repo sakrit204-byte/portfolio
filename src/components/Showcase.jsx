@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Signal } from './Backdrop';
 import s from './showcase.module.css';
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -176,6 +177,11 @@ export default function Showcase({ project, index }) {
   return (
     <article className={s.project} id={project.id} ref={sectionRef} data-flip={index % 2 === 1 || undefined}>
       <header className={s.head}>
+        {project.note && (
+          <Signal className={s.note} rot={index % 2 ? 3 : -3}>
+            {project.note}
+          </Signal>
+        )}
         <div>
           <h3 className={s.name}>{project.name}</h3>
           <p className={s.context}>

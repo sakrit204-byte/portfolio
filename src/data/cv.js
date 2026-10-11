@@ -41,6 +41,7 @@ const shot = (p) => `/shots/${p}`;
 export const PROJECTS = [
   {
     id: 'airlock',
+    note: 'AI that knows when to say no',
     name: 'Okta Access Airlock',
     context: 'RailCall marketplace module',
     year: '2026',
@@ -82,6 +83,7 @@ export const PROJECTS = [
   },
   {
     id: 'plantation',
+    note: 'one database, 26 river systems',
     name: 'Plantation Monitoring System',
     context: 'BRCRN Project, Government of Nepal',
     year: '2026',
@@ -123,6 +125,7 @@ export const PROJECTS = [
   },
   {
     id: 'synexis',
+    note: 'built for people who use it all day',
     name: 'Synexis CRM',
     context: 'YADverse product',
     year: '2026',
@@ -148,6 +151,7 @@ export const PROJECTS = [
   },
   {
     id: 'fleet',
+    note: 'shipped from Nepal on Sydney time',
     name: 'YourFleetElite',
     context: 'Remote client, Sydney',
     year: '2025',
@@ -175,6 +179,7 @@ export const PROJECTS = [
   },
   {
     id: 'sakritcraft',
+    note: 'next: an engine people actually play',
     name: 'SakritCraft',
     context: 'Personal engine project',
     year: 'In progress',
@@ -217,24 +222,28 @@ export const PROJECTS = [
 export const MORE_WORK = [
   {
     name: 'Churia Knowledge Centre',
+    cover: 'map',
     text: 'Knowledge platform for the Ministry of Forests and Environment. Finds Chure research on government sites and classifies it with a local model, with a three reviewer publishing flow and a 3D map of the region.',
     stack: 'Next.js · FastAPI · PostgreSQL · deck.gl · Ollama',
     href: 'https://github.com/sakrit204-byte/churia-knowledge-center',
   },
   {
     name: 'Accent Coach',
+    cover: 'wave',
     text: 'Speak into the mic and get an accent estimate across 23 classes plus pronunciation and fluency scores, all computed locally on a CPU.',
     stack: 'Python · Whisper · WavLM · FastAPI',
     href: 'https://github.com/sakrit204-byte/accentlearning_ml',
   },
   {
     name: 'Python to C compiler',
+    cover: 'code',
     text: 'A deterministic compiler for a subset of Python with a desktop IDE. A local model is consulted only for unknown calls, and its answer is used only if it compiles.',
     stack: 'Python · Lexer, parser, codegen',
     href: 'https://github.com/sakrit204-byte/aibased_language_translation_compiler',
   },
   {
     name: 'Malhotra Enterprise',
+    cover: 'catalogue',
     text: 'Catalogue and enquiry platform for an architectural hardware business in Kathmandu, with manager and customer conversations mirrored over email.',
     stack: 'Next.js · Prisma · PostgreSQL · Docker',
     href: 'https://github.com/sakrit204-byte/malhotra_hardware',
@@ -246,6 +255,8 @@ export const EXPERIENCE = [
     role: 'Cofounder and engineer',
     org: 'YADverse',
     href: 'https://yadverse.tech',
+    image: '/shots/yadverse/web-home.jpg',
+    imageLabel: 'yadverse.tech',
     place: 'Kathmandu, Nepal',
     period: 'Jan 2025 to now',
     points: [
@@ -257,6 +268,8 @@ export const EXPERIENCE = [
   {
     role: 'Full stack developer',
     org: 'BRCRN Project, Government of Nepal',
+    image: '/shots/plantation/web-dashboard.jpg',
+    imageLabel: 'Plantation Tracker',
     place: 'Ministry of Agriculture, Forest and Environment',
     period: 'May 2026 to Jul 2026',
     points: [
@@ -269,6 +282,8 @@ export const EXPERIENCE = [
     role: 'WordPress developer',
     org: 'YourFleetElite',
     href: 'https://yourfleetelite.com.au/',
+    image: '/shots/yourfleetelite/web-home.jpg',
+    imageLabel: 'yourfleetelite.com.au',
     place: 'Sydney, Australia (remote)',
     period: 'Contract',
     points: ['Built and maintained the production site, improving speed and mobile layout.'],
@@ -313,26 +328,36 @@ export const REFERENCES = [
 export const HOLES = [
   {
     title: 'Hello',
+    image: '/profile.jpg',
+    caption: 'Sakrit Kafle, Bhaktapur, Nepal',
     text: 'I’m Sakrit, a full stack and AI engineer from Bhaktapur, Nepal.',
     link: { label: 'About me', href: '#about' },
   },
   {
     title: 'The studio',
+    image: '/shots/yadverse/web-home.jpg',
+    caption: 'YADverse, the studio I cofounded',
     text: 'I cofounded YADverse, a small studio building web apps, AI products and hosting.',
     link: { label: 'Experience', href: '#experience' },
   },
   {
     title: 'Agents with guardrails',
+    image: '/shots/railcall/railcall_title.jpg',
+    caption: 'Okta Access Airlock on RailCall',
     text: 'Okta Access Airlock lets AI agents manage access, and refuses when the world has changed.',
     link: { label: 'See the project', href: '#airlock' },
   },
   {
     title: 'Government work',
+    image: '/shots/plantation/web-dashboard.jpg',
+    caption: 'Plantation Tracker, Government of Nepal',
     text: 'A plantation monitoring system for 26 river systems, running on a government server.',
     link: { label: 'See the project', href: '#plantation' },
   },
   {
     title: 'Clubhouse',
+    image: '/shots/minecraft/16_daylight.jpg',
+    caption: 'Next up: SakritCraft, my own engine',
     text: 'That’s the round. If you have something to build, I’d like to hear about it.',
     link: { label: 'Get in touch', href: '#contact' },
   },

@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { CONTACT, EDUCATION, EXPERIENCE, MORE_WORK, PROFILE, PROJECTS, REFERENCES, SKILLS } from '../data/cv';
+import { Signal } from './Backdrop';
+import Cover from './Cover';
 import Reveal from './Reveal';
 import Showcase from './Showcase';
 import s from './sections.module.css';
 
-function Heading({ eyebrow, title, lead }) {
+function Heading({ eyebrow, title, lead, note, rot, noteAbove }) {
   return (
     <header className={s.heading}>
+      {note && (
+        <Signal className={`${s.headNote} ${noteAbove ? s.headNoteAbove : ''}`} rot={rot}>
+          {note}
+        </Signal>
+      )}
       <Reveal as="p" className="eyebrow">
         {eyebrow}
       </Reveal>
@@ -30,6 +37,8 @@ export function Work() {
           eyebrow="Selected work"
           title="Real products, used by real teams."
           lead="Each of these is live or in use. Scroll through them the way their users do."
+          note="still at uni, already in production"
+          rot={-4}
         />
       </div>
       {PROJECTS.map((p, i) => (
@@ -47,6 +56,9 @@ export function MoreWork() {
           <h2 id="more-title" className={s.h3}>
             More on GitHub
           </h2>
+          <Signal className={s.inlineNote} rot={-2}>
+            ship it, then make it better
+          </Signal>
           <a className={s.textLink} href={CONTACT.githubHref} target="_blank" rel="noreferrer">
             {CONTACT.github} <span aria-hidden="true">↗</span>
           </a>
@@ -54,6 +66,7 @@ export function MoreWork() {
         <div className={s.cards}>
           {MORE_WORK.map((w, i) => (
             <Reveal as="a" key={w.name} className={s.card} href={w.href} target="_blank" rel="noreferrer" delay={i * 0.05}>
+              <Cover kind={w.cover} />
               <h3>{w.name}</h3>
               <p>{w.text}</p>
               <span className={s.cardStack}>{w.stack}</span>
@@ -72,7 +85,7 @@ export function Experience() {
   return (
     <section id="experience" className="section">
       <div className="wrap">
-        <Heading eyebrow="Experience" title="Where I’ve been building." />
+        <Heading eyebrow="Experience" title="Where I’ve been building." note="from Bhaktapur to anywhere" rot={3} />
         <ol className={s.timeline}>
           {EXPERIENCE.map((x) => (
             <Reveal as="li" key={x.org} className={s.job}>
@@ -95,6 +108,12 @@ export function Experience() {
                   ))}
                 </ul>
               </div>
+              {x.image && (
+                <figure className={s.jobShot}>
+                  <img src={x.image} alt={`${x.org}: ${x.imageLabel}`} loading="lazy" />
+                  <figcaption className="sayTag">{x.imageLabel}</figcaption>
+                </figure>
+              )}
             </Reveal>
           ))}
         </ol>
@@ -137,7 +156,13 @@ export function About() {
           <span className={`sayTag ${s.portraitTag}`}>{PROFILE.location}</span>
         </Reveal>
         <div>
-          <Heading eyebrow="About" title="Engineer first, designer by habit." />
+          <Heading
+            eyebrow="About"
+            title="Engineer first, designer by habit."
+            note="build it, deploy it, keep it running"
+            rot={-3}
+            noteAbove
+          />
           {PROFILE.about.map((p) => (
             <Reveal as="p" key={p.slice(0, 20)} className={s.aboutText}>
               {p}
@@ -197,13 +222,16 @@ export function Contact() {
 
   return (
     <section id="contact" className={`section ${s.contact}`}>
-      <div className="wrap">
+      <div className={`wrap ${s.contactWrap}`}>
         <Reveal as="p" className="eyebrow">
           Contact
         </Reveal>
         <Reveal as="h2" className={s.contactTitle} delay={0.05}>
           Have something worth building?
         </Reveal>
+        <Signal className={s.headNote} rot={4}>
+          5 holes, par 17. beat it?
+        </Signal>
         <Reveal as="p" className="lead" delay={0.1}>
           Tell me what you are working on and where you are stuck. Email is the quickest way to reach me.
         </Reveal>

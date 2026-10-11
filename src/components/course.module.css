@@ -354,6 +354,36 @@
   text-align: center;
   animation: rise 0.35s var(--ease) both;
 }
+.toast[data-image] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 8px 8px;
+  text-align: left;
+}
+.toast img {
+  flex: none;
+  width: 92px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 7px;
+}
+.stage[data-coarse] .toast img {
+  width: 64px;
+}
+
+.resultImage {
+  width: calc(100% + 44px);
+  max-width: none;
+  margin: -22px -22px 16px;
+  aspect-ratio: 16 / 7;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 20px 20px 0 0;
+  border-bottom: 2px solid var(--ink);
+}
+
 .stage[data-coarse] .toast {
   top: auto;
   bottom: 170px;

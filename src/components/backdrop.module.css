@@ -1,0 +1,145 @@
+.backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  --sy: 0;
+}
+
+/* everything is positioned by percent of the page and drifts with scroll */
+.at {
+  position: absolute;
+  transform: translate3d(0, calc(var(--sy) * var(--k, 0) * 1px), 0);
+  will-change: transform;
+}
+
+.hill {
+  display: block;
+  fill: none;
+  stroke: #d9cdb8;
+  stroke-width: 1.4;
+  opacity: 0.55;
+}
+
+.arc {
+  display: block;
+  overflow: visible;
+  opacity: 0.6;
+}
+.arc[data-side='r'] {
+  transform: scaleX(-1);
+}
+.arc path {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 1.6;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+.arc circle {
+  fill: #fff;
+  stroke: var(--ink-3);
+  stroke-width: 1.2;
+}
+.arc .pin {
+  stroke: var(--ember);
+  stroke-dasharray: none;
+  fill: var(--ember);
+  fill-opacity: 0.5;
+}
+
+.bubble {
+  display: grid;
+  place-items: center;
+  width: calc(78px * var(--s, 1));
+  height: calc(78px * var(--s, 1));
+  margin-left: calc(-39px * var(--s, 1));
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95), rgba(255, 253, 249, 0.35) 55%, rgba(215, 235, 230, 0.4));
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 120, 118, 0.16),
+    inset -6px -8px 14px rgba(0, 120, 118, 0.07),
+    0 8px 22px rgba(11, 42, 51, 0.05);
+  font-family: var(--mono);
+  font-size: calc(10.5px * var(--s, 1));
+  font-weight: 600;
+  color: rgba(11, 42, 51, 0.5);
+  white-space: nowrap;
+  animation: bob 9s ease-in-out var(--d, 0s) infinite;
+}
+
+.note {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  max-width: 17ch;
+  font-family: 'Caveat', 'Segoe Print', cursive;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.02;
+  color: rgba(64, 88, 96, 0.82);
+  rotate: var(--r, 0deg);
+  pointer-events: none;
+}
+
+.signal {
+  flex: none;
+  margin-bottom: 3px;
+  overflow: visible;
+  fill: none;
+  stroke: var(--ember);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.signal circle {
+  fill: var(--ember);
+  stroke: none;
+}
+.signal path {
+  animation: pulse 2.8s ease-in-out infinite;
+}
+.signal path:nth-of-type(2) {
+  animation-delay: 0.25s;
+}
+.signal path:nth-of-type(3) {
+  animation-delay: 0.5s;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -14px;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  40% {
+    opacity: 0.9;
+  }
+}
+
+@media (max-width: 1100px) {
+  .bubble {
+    opacity: 0.45;
+  }
+}
+@media (max-width: 640px) {
+  .bubble:nth-of-type(odd) {
+    display: none;
+  }
+  .arc {
+    opacity: 0.35;
+  }
+  .note {
+    font-size: 21px;
+  }
+}

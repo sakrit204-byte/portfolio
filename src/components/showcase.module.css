@@ -10,9 +10,33 @@
 
 /* ---------- header ---------- */
 .head {
+  position: relative;
   display: grid;
   row-gap: 14px;
   max-width: 760px;
+}
+
+/* the handwritten note in the empty space beside the project title */
+.note {
+  position: absolute;
+  left: calc(100% + 56px);
+  top: 18px;
+  width: max-content;
+}
+@media (max-width: 1240px) {
+  .note {
+    left: auto;
+    right: 0;
+    top: -14px;
+    transform: translateY(-100%);
+  }
+}
+@media (max-width: 760px) {
+  .note {
+    position: static;
+    transform: none;
+    order: -1;
+  }
 }
 
 .name {

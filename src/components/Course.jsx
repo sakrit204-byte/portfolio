@@ -87,9 +87,9 @@ export default function Course({ playing, onExit }) {
     sim.current.overview = overview;
   }, [overview]);
 
-  const flash = useCallback((text, ms = 3400) => {
+  const flash = useCallback((text, ms = 3400, image = null) => {
     const key = Date.now() + Math.random();
-    setToast({ key, text });
+    setToast({ key, text, image });
     setTimeout(() => setToast((t) => (t?.key === key ? null : t)), ms);
   }, []);
 
@@ -215,7 +215,7 @@ export default function Course({ playing, onExit }) {
     const queue = [];
     let world;
     try {
-      world = createCourse(canvas, { theme: THEME, calm, onEvent: (ev) => queue.push(ev) });
+      world = createCourse(canvas, { theme: THEME, calm, onEvent: (ev) => queue.push(ev), boards: HOLES });
     } catch (err) {
       console.error('WebGL unavailable:', err);
       setFailed(true);
@@ -434,7 +434,7 @@ export default function Course({ playing, onExit }) {
           if ((dCup < FIND_R || dTee < TEE_R + 1) && !S.found.has(i)) {
             S.found.add(i);
             setFound(new Set(S.found));
-            flash(`Found hole ${i + 1}: ${HOLES[i].title}. ${HOLES[i].text}`, 5200);
+            flash(`Found hole ${i + 1}: ${HOLES[i].title}. ${HOLES[i].text}`, 5600, HOLES[i].image);
           }
         });
         if (tee !== S.nearTee) {
@@ -731,13 +731,15 @@ export default function Course({ playing, onExit }) {
           )}
 
           {toast && (
-            <p className={s.toast} key={toast.key} role="status">
-              {toast.text}
+            <p className={s.toast} key={toast.key} role="status" data-image={toast.image ? '' : undefined}>
+              {toast.image && <img src={toast.image} alt="" />}
+              <span>{toast.text}</span>
             </p>
           )}
 
           {mode === 'golf' && phase === 'holed' && (
             <div className={s.result} role="dialog" aria-label="Hole complete">
+              <img className={s.resultImage} src={info.image} alt={info.caption} />
               <span className={s.eyebrow}>
                 Hole {hole + 1} in {strokes[hole]}
               </span>

@@ -140,7 +140,16 @@ kbd {
   font-weight: 700;
 }
 
-/* Layout */
+/* Layout: the page sits above the backdrop layer */
+.page {
+  position: relative;
+}
+.page > section {
+  position: relative;
+  z-index: 1;
+}
+
+
 .wrap {
   width: 100%;
   max-width: var(--maxw);
