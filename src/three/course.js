@@ -863,6 +863,8 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
     lastDryX: 0,
     lastDryZ: 0,
     inX: 0, // roam input: desired direction * strength, world space
+    shot: false, // the current roam motion came from a swing, not from rolling
+    cupHole: 0,
     inZ: 0,
     restX: 0,
     restZ: 0,
@@ -886,7 +888,7 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
   const dotM = new THREE.Matrix4();
 
   function drawAim(yaw, power, visible) {
-    if (!visible || ball.state !== 'rest') {
+    if (!visible || (ball.state !== 'rest' && !(ball.state === 'roam' && ball.air <= 0))) {
       dotMesh.count = 0;
       return;
     }
@@ -941,14 +943,26 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
     placeBall(tx, tz);
   }
 
-  function shoot(yaw, power) {
-    if (ball.state !== 'rest') return false;
+  function launch(yaw, power) {
     const p = Math.max(0, Math.min(1, power));
     const speed = 4 + 40 * Math.pow(p, 1.3);
     ball.vx = Math.sin(yaw) * speed;
     ball.vz = Math.cos(yaw) * speed;
     ball.vy = p > 0.38 ? (p - 0.38) * 22 : 0;
     ball.air = ball.vy > 0 ? 0.02 : 0;
+  }
+
+  /** A free shot while exploring: no strokes, but it can find a cup. */
+  function roamShot(yaw, power) {
+    if (ball.state !== 'roam' || ball.air > 0) return false;
+    launch(yaw, power);
+    ball.shot = true;
+    return true;
+  }
+
+  function shoot(yaw, power) {
+    if (ball.state !== 'rest') return false;
+    launch(yaw, power);
     ball.restX = ball.x;
     ball.restZ = ball.z;
     ball.state = 'moving';
@@ -1239,6 +1253,8 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
         const room = Math.max(0, 1 - along / 16);
         ball.vx += ball.inX * 30 * room * h;
         ball.vz += ball.inZ * 30 * room * h;
+        if (ball.inX || ball.inZ) ball.shot = false;
+        if (Math.hypot(ball.vx, ball.vz) < 0.3) ball.shot = false;
         if (waterDepth(ball.x, ball.z) < -0.6) {
           ball.lastDryX = ball.x;
           ball.lastDryZ = ball.z;
@@ -1293,6 +1309,21 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
         if (vn < 0) {
           ball.vx -= 1.5 * vn * nx;
           ball.vz -= 1.5 * vn * nz;
+        }
+      }
+    }
+
+    // a free shot that finds any cup drops in for a trick shot
+    if (roaming && ball.shot && ball.air < 0.2) {
+      for (let i = 0; i < LAYOUT.length; i++) {
+        const [hx, hz] = LAYOUT[i].cup;
+        if (Math.hypot(ball.x - hx, ball.z - hz) < CUP_R && Math.hypot(ball.vx, ball.vz) < 9) {
+          ball.state = 'cupped';
+          ball.cupHole = i;
+          ball.timer = 0;
+          ball.shot = false;
+          onEvent?.({ type: 'trick', hole: i });
+          return;
         }
       }
     }
@@ -1356,12 +1387,17 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
       const st = ball.state;
       const steps = Math.ceil(dt / (1 / 120));
       for (let i = 0; i < steps && ball.state === st; i++) stepBall(dt / steps);
-    } else if (ball.state === 'holed') {
+    } else if (ball.state === 'holed' || ball.state === 'cupped') {
       ball.timer += dt;
-      const [cx, cz] = LAYOUT[ball.hole].cup;
+      const [cx, cz] = LAYOUT[ball.state === 'holed' ? ball.hole : ball.cupHole].cup;
       ball.x += (cx - ball.x) * Math.min(1, dt * 10);
       ball.z += (cz - ball.z) * Math.min(1, dt * 10);
       ball.air = -Math.min(1.1, ball.timer * 3);
+      if (ball.state === 'cupped' && ball.timer > 1.2) {
+        // pop back out beside the cup and carry on exploring
+        placeBall(cx + 1.4, cz + 1.4);
+        ball.state = 'roam';
+      }
     } else if (ball.state === 'water') {
       ball.timer += dt;
       ball.air = Math.max(-1.6, ball.air - dt * 1.4);
@@ -1381,7 +1417,8 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
 
     const gy = ball.state === 'water' ? WATER_Y : groundHeight(ball.x, ball.z);
     ballMesh.position.set(ball.x, gy + BALL_R + ball.air, ball.z);
-    ballMesh.visible = ball.state !== 'parked' && !(ball.state === 'holed' && ball.timer > 0.4);
+    ballMesh.visible =
+      ball.state !== 'parked' && !((ball.state === 'holed' || ball.state === 'cupped') && ball.timer > 0.4);
     shadowDisc.position.set(ball.x, groundHeight(ball.x, ball.z) + 0.05, ball.z);
     shadowDisc.visible = ball.air > 0.3 && ball.state === 'moving';
     shadowDisc.material.opacity = Math.max(0.06, 0.24 - ball.air * 0.02);
@@ -1458,6 +1495,7 @@ export function createCourse(canvas, { theme, calm, onEvent, boards = [] }) {
     holes,
     update,
     shoot,
+    roamShot,
     teeUp,
     drawAim,
     cart,

@@ -125,7 +125,7 @@ export const PROJECTS = [
   },
   {
     id: 'synexis',
-    note: 'built for people who use it all day',
+    note: 'from first enquiry to visa, one record',
     name: 'Synexis CRM',
     context: 'YADverse product',
     year: '2026',

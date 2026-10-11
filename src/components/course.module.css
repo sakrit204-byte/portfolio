@@ -316,6 +316,15 @@
   background: rgba(11, 42, 51, 0.18);
   overflow: hidden;
 }
+/* while exploring the bar only shows itself during a wind-up */
+.power[data-soft] {
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.stage[data-winding] .power[data-soft] {
+  opacity: 1;
+}
+
 .power i {
   display: block;
   height: 100%;

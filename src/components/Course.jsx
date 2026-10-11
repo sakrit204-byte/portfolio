@@ -68,7 +68,6 @@ export default function Course({ playing, onExit }) {
     lastOrbit: -10000,
     power: 0,
     charging: false,
-    chargeDir: 1,
     keys: new Set(),
     drag: null,
     stick: null, // touch joystick { id, x, y, dx, dy }
@@ -78,6 +77,7 @@ export default function Course({ playing, onExit }) {
     nearTee: null,
     nearCart: false,
     started: false,
+    chargeStart: 0,
   });
 
   useEffect(() => {
@@ -243,17 +243,26 @@ export default function Course({ playing, onExit }) {
     /* ---------- pointer ---------- */
     const canAim = () => S.playing && S.mode === 'golf' && S.phase === 'aim';
 
+    const freeShot = () => {
+      if (S.mode === 'roam' && S.power >= 0.05 && world.roamShot(S.camYaw, S.power)) {
+        S.lastOrbit = performance.now();
+      }
+      S.power = 0;
+    };
+
     const onPointerDown = (e) => {
       if (!S.playing || e.button > 0 || e.target.closest?.('button, a, [role=dialog]')) return;
       const r = stage.getBoundingClientRect();
       if (canAim()) {
         S.drag = { kind: 'aim', id: e.pointerId, x: e.clientX, y: e.clientY, yaw: S.aimYaw };
       } else if (S.mode !== 'golf') {
-        // touch: the left half is a joystick, the right half looks around
+        // touch: the left half is a joystick, the right half looks and swings
         if (isCoarse && e.clientX - r.left < r.width * 0.5 && !S.stick) {
           S.stick = { id: e.pointerId, x: e.clientX - r.left, y: e.clientY - r.top, dx: 0, dy: 0 };
         } else {
-          S.drag = { kind: 'orbit', id: e.pointerId, x: e.clientX };
+          // exploring: sideways looks (and aims), pulling down winds up a free shot
+          const kind = S.mode === 'roam' ? 'swing' : 'orbit';
+          S.drag = { kind, id: e.pointerId, x: e.clientX, y: e.clientY, lastX: e.clientX };
         }
       } else return;
       stage.setPointerCapture?.(e.pointerId);
@@ -274,9 +283,10 @@ export default function Course({ playing, onExit }) {
         S.aimYaw = S.drag.yaw - (e.clientX - S.drag.x) * 0.005;
         S.power = clamp((e.clientY - S.drag.y) / (height * 0.34), 0, 1);
       } else {
-        S.camYaw -= (e.clientX - S.drag.x) * 0.006;
-        S.drag.x = e.clientX;
+        S.camYaw -= (e.clientX - S.drag.lastX) * 0.005;
+        S.drag.lastX = e.clientX;
         S.lastOrbit = performance.now();
+        if (S.drag.kind === 'swing') S.power = clamp((e.clientY - S.drag.y) / (height * 0.34), 0, 1);
       }
     };
     const onPointerUp = (e) => {
@@ -286,9 +296,10 @@ export default function Course({ playing, onExit }) {
         return;
       }
       if (!S.drag || e.pointerId !== S.drag.id) return;
-      const wasAim = S.drag.kind === 'aim';
+      const kind = S.drag.kind;
       S.drag = null;
-      if (wasAim) shoot();
+      if (kind === 'aim') shoot();
+      else if (kind === 'swing') freeShot();
     };
     stage.addEventListener('pointerdown', onPointerDown);
     stage.addEventListener('pointermove', onPointerMove);
@@ -312,14 +323,18 @@ export default function Course({ playing, onExit }) {
           e.preventDefault();
           if (!S.charging) {
             S.charging = true;
-            S.chargeDir = 1;
             S.power = 0;
+            S.chargeStart = performance.now();
           }
         } else if (k === 'v') setOverview((v) => !v);
         else if (k === 'escape') backToRoam();
-      } else if (k === ' ' && !onButton) {
+      } else if (k === ' ' && !onButton && S.mode === 'roam') {
         e.preventDefault();
-        world.hop();
+        if (!S.charging) {
+          S.charging = true;
+          S.power = 0;
+          S.chargeStart = performance.now();
+        }
       } else if (k === 'e' && S.nearTee !== null) startHole(S.nearTee);
       else if (k === 'f') toggleCart();
       else if (k === 'escape') onExit?.();
@@ -329,7 +344,11 @@ export default function Course({ playing, onExit }) {
       S.keys.delete(k);
       if ((k === ' ' || k === 'enter') && S.charging) {
         S.charging = false;
-        shoot();
+        if (S.mode === 'golf') shoot();
+        else if (performance.now() - S.chargeStart < 180 && S.power < 0.15) {
+          S.power = 0;
+          world.hop();
+        } else freeShot();
       }
     };
     const onBlur = () => {
@@ -372,7 +391,20 @@ export default function Course({ playing, onExit }) {
         }
       }
 
-      if (S.mode === 'roam') {
+      // the meter swings up and down on wall-clock time, so a slow frame rate never changes it
+      const charge = (delay = 0) => {
+        const t = (Math.max(0, now - S.chargeStart - delay) / 1000) * 0.85;
+        const swing = t % 2;
+        S.power = swing < 1 ? swing : 2 - swing;
+      };
+
+      if (S.mode === 'roam' && S.charging) {
+        // winding up a free shot: A and D turn the aim, the ball stays put
+        S.camYaw -= clamp(ix, -1, 1) * dt * 1.3;
+        S.lastOrbit = now;
+        world.setRoamInput(0, 0);
+        charge(180);
+      } else if (S.mode === 'roam') {
         // camera relative: forward is where the camera looks
         const fx = Math.sin(S.camYaw);
         const fz = Math.cos(S.camYaw);
@@ -388,16 +420,7 @@ export default function Course({ playing, onExit }) {
         world.setCartInput(clamp(ix, -1, 1), clamp(iz, -1, 1));
       } else if (canAim()) {
         S.aimYaw -= clamp(ix, -1, 1) * dt * 1.3;
-        if (S.charging) {
-          S.power += S.chargeDir * dt * 0.85;
-          if (S.power >= 1) {
-            S.power = 1;
-            S.chargeDir = -1;
-          } else if (S.power <= 0) {
-            S.power = 0;
-            S.chargeDir = 1;
-          }
-        }
+        if (S.charging) charge();
       }
 
       world.update(dt, clock);
@@ -417,6 +440,12 @@ export default function Course({ playing, onExit }) {
           }
         } else if (ev.type === 'holed') {
           setTimeout(() => setPhase('holed'), 650);
+        } else if (ev.type === 'trick') {
+          if (!S.found.has(ev.hole)) {
+            S.found.add(ev.hole);
+            setFound(new Set(S.found));
+          }
+          flash(`Trick shot. Straight into the cup on hole ${ev.hole + 1}, from out of play.`, 4200, HOLES[ev.hole].image);
         } else if (ev.type === 'bag') {
           flash(ev.down === ev.total ? 'Every golf bag on the course is down. Impressive.' : `Golf bag down. ${ev.down} of ${ev.total}.`);
         }
@@ -453,7 +482,8 @@ export default function Course({ playing, onExit }) {
         setNearCart(false);
       }
 
-      world.drawAim(S.aimYaw, S.power, S.playing && S.mode === 'golf' && S.phase === 'aim');
+      if (S.mode === 'roam') world.drawAim(S.camYaw, S.power, S.playing && S.power > 0.02);
+      else world.drawAim(S.aimYaw, S.power, S.playing && S.mode === 'golf' && S.phase === 'aim');
 
       /* camera */
       if (!S.playing) {
@@ -485,7 +515,7 @@ export default function Course({ playing, onExit }) {
           const heading = S.mode === 'cart' ? cart.heading : Math.atan2(vx, vz);
           S.camYaw = angleLerp(S.camYaw, heading, Math.min(1, dt * (S.mode === 'cart' ? 2.4 : 1.1)));
         }
-        const back = S.mode === 'cart' ? 12 : 13;
+        const back = S.mode === 'cart' ? 12 : 13 + S.power * 2.5;
         const up = S.mode === 'cart' ? 6.2 : 6.6;
         const fx = Math.sin(S.camYaw);
         const fz = Math.cos(S.camYaw);
@@ -549,6 +579,7 @@ export default function Course({ playing, onExit }) {
         }
       }
       if (powerRef.current) powerRef.current.style.transform = `scaleX(${S.power})`;
+      stage.toggleAttribute('data-winding', S.mode === 'roam' && S.power > 0.02);
 
       renderer.render(scene, camera);
     };
@@ -686,6 +717,11 @@ export default function Course({ playing, onExit }) {
 
           {mode !== 'golf' && (
             <div className={s.aimBar}>
+              {mode === 'roam' && (
+                <span className={s.power} data-soft aria-hidden="true">
+                  <i ref={powerRef} />
+                </span>
+              )}
               <div className={s.prompts}>
                 {nearTee !== null && (
                   <button className={s.prompt} onClick={() => startHole(nearTee)}>
@@ -703,8 +739,11 @@ export default function Course({ playing, onExit }) {
               <p className={s.hint}>
                 {coarse ? (
                   <>
-                    Left thumb {mode === 'cart' ? 'drives' : 'rolls'}, right thumb looks around. Roll onto a tee to
-                    play it.
+                    {mode === 'cart' ? (
+                      <>Left thumb drives, right thumb looks around.</>
+                    ) : (
+                      <>Left thumb rolls. Right thumb looks around, pull it down to swing. Roll onto a tee to play it.</>
+                    )}
                   </>
                 ) : mode === 'cart' ? (
                   <>
@@ -717,7 +756,7 @@ export default function Course({ playing, onExit }) {
                     <kbd>W</kbd>
                     <kbd>A</kbd>
                     <kbd>S</kbd>
-                    <kbd>D</kbd> roll, <kbd>Space</kbd> hop, drag to look around. Roll onto a tee to play it.
+                    <kbd>D</kbd> roll. Drag to look, pull down to swing. Tap <kbd>Space</kbd> to hop, hold it to swing.
                   </>
                 )}
               </p>
