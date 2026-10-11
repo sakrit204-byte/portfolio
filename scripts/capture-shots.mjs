@@ -39,8 +39,10 @@ async function primePage(page) {
 
 /** Blur personal data (names, phone numbers, emails) before a capture. */
 async function maskPersonalData(page) {
-  await page.addStyleTag({
-    content: `[data-pii], td, .person, .user-name, .phone, a[href^="tel:"], a[href^="mailto:"] { filter: blur(5px) !important; }`,
+  // inline style attributes survive a strict CSP where <style> tags do not
+  await page.evaluate(() => {
+    const sel = '[data-pii], td, .person, .user-name, .phone, a[href^="tel:"], a[href^="mailto:"]';
+    document.querySelectorAll(sel).forEach((el) => (el.style.filter = 'blur(5px)'));
   });
 }
 
@@ -74,30 +76,40 @@ async function plantationLoggedIn(browser) {
     console.log('skip plantation app screens: set PT_EMAIL and PT_PASSWORD');
     return;
   }
-  const login = async (page) => {
-    await page.goto(`${PT}/#/login`, { waitUntil: 'networkidle2' });
-    await page.type('input[type=email], input[name=email]', PT_EMAIL);
-    await page.type('input[type=password]', PT_PASSWORD);
-    await Promise.all([page.keyboard.press('Enter'), wait(2500)]);
-  };
+  // one page, one login: the session cookie carries over between routes
+  const page = await browser.newPage();
+  await page.setViewport(DESKTOP);
+  await page.goto(`${PT}/#/login`, { waitUntil: 'networkidle2' });
+  await page.type('input[type=email], input[name=email], input[placeholder*="email" i]', PT_EMAIL);
+  await page.type('input[type=password]', PT_PASSWORD);
+  await page.keyboard.press('Enter');
+  await wait(3500);
+
   const pages = [
     ['portal/dashboard', 'web-dashboard', DESKTOP],
-    ['portal/map', 'web-map', DESKTOP],
+    ['portal/analytics', 'web-analytics', DESKTOP],
+    ['portal/monitoring', 'web-monitoring', DESKTOP],
     ['locations', 'mobile-locations', PHONE],
   ];
   for (const [route, name, device] of pages) {
-    await shoot(browser, {
-      url: `${PT}/#/${route}`,
-      file: `plantation/${name}.jpg`,
-      device,
-      before: async (page) => {
-        await login(page);
-        await page.goto(`${PT}/#/${route}`, { waitUntil: 'networkidle2' });
-        await wait(2500);
-        await maskPersonalData(page);
-      },
+    await page.setViewport(device);
+    await page.setUserAgent(device.isMobile ? PHONE_UA : (await browser.userAgent()));
+    await page.goto(`${PT}/#/${route}`, { waitUntil: 'networkidle2' });
+    await wait(3500);
+    await maskPersonalData(page);
+    const height = Math.min(4200, await page.evaluate(() => document.documentElement.scrollHeight));
+    const dest = path.join(OUT, `plantation/${name}.jpg`);
+    mkdirSync(path.dirname(dest), { recursive: true });
+    await page.screenshot({
+      path: dest,
+      type: 'jpeg',
+      quality: 82,
+      clip: { x: 0, y: 0, width: device.width, height },
+      captureBeyondViewport: true,
     });
+    console.log('saved', `plantation/${name}.jpg`, `${device.width}x${height}`);
   }
+  await page.close();
 }
 
 const only = process.argv[2];

@@ -173,12 +173,9 @@ export default function Showcase({ project, index }) {
     window.scrollTo({ top: window.scrollY + r.top - window.innerHeight * 0.5 + 40, behavior: 'smooth' });
   };
 
-  const num = String(index + 1).padStart(2, '0');
-
   return (
     <article className={s.project} id={project.id} ref={sectionRef} data-flip={index % 2 === 1 || undefined}>
       <header className={s.head}>
-        <span className={s.num}>{num}</span>
         <div>
           <h3 className={s.name}>{project.name}</h3>
           <p className={s.context}>
