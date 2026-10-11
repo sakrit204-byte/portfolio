@@ -110,6 +110,9 @@
   .actions {
     margin-top: 24px;
   }
+  .note {
+    display: none;
+  }
 }
 
 @media (max-width: 420px) {

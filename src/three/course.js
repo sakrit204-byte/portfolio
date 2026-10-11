@@ -625,7 +625,7 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
   }
 
   for (const [bx, bz, yaw] of [
-    [12, 41, -0.4],
+    [15, 31, -1.1],
     [-33, 18, 0.9],
     [52, -11, 1.2],
   ]) {
