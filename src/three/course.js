@@ -474,6 +474,55 @@ function makeBench(x, z, yaw) {
   return g;
 }
 
+/** A two-seat golf cart. `body` tilts with the ground, the group yaws. */
+function makeCart() {
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  g.add(body);
+  const mat = (color, roughness = 0.5, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness, ...extra });
+  const white = mat(0xf4f2ec, 0.4);
+  const add = (geo, m, x, y, z, shadow = true) => {
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = shadow;
+    body.add(mesh);
+    return mesh;
+  };
+  add(new THREE.BoxGeometry(1.5, 0.45, 2.6), white, 0, 0.64, 0);
+  add(new THREE.BoxGeometry(1.53, 0.12, 2.63), mat(0x007876), 0, 0.5, 0, false);
+  add(new THREE.BoxGeometry(1.3, 0.36, 0.78), mat(0x0b2a33, 0.8), 0, 1.04, -0.35);
+  add(new THREE.BoxGeometry(1.3, 0.62, 0.14), mat(0x0b2a33, 0.8), 0, 1.42, -0.74);
+  add(new THREE.BoxGeometry(1.62, 0.08, 2.3), white, 0, 2.2, -0.08);
+  const postMat = mat(0xb9c2c6, 0.35, { metalness: 0.5 });
+  for (const [px, pz] of [[-0.72, -0.98], [0.72, -0.98], [-0.72, 0.9], [0.72, 0.9]]) {
+    add(new THREE.CylinderGeometry(0.045, 0.045, 1.4, 6), postMat, px, 1.48, pz, false);
+  }
+  const shield = add(
+    new THREE.PlaneGeometry(1.36, 0.72),
+    mat(0xcfe6ec, 0.1, { transparent: true, opacity: 0.38, side: THREE.DoubleSide }),
+    0,
+    1.66,
+    0.94,
+    false,
+  );
+  shield.rotation.x = 0.16;
+  add(
+    new THREE.BoxGeometry(0.5, 0.12, 0.06),
+    mat(0xf5b93b, 0.4, { emissive: 0xf5b93b, emissiveIntensity: 0.3 }),
+    0,
+    0.72,
+    1.31,
+    false,
+  );
+  const wheelGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 16).rotateZ(Math.PI / 2);
+  const wheelMat = mat(0x1d2328, 0.9);
+  const wheels = [];
+  for (const [px, pz] of [[-0.74, -0.86], [0.74, -0.86], [-0.74, 0.86], [0.74, 0.86]]) {
+    wheels.push(add(wheelGeo, wheelMat, px, 0.32, pz));
+  }
+  return { group: g, body, wheels };
+}
+
 function makeBall() {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -705,7 +754,12 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
     vx: 0,
     vz: 0,
     vy: 0,
-    state: 'rest', // rest | moving | holed | water
+    state: 'rest', // roam | parked | rest | moving | holed | water
+    wasRoam: false,
+    lastDryX: 0,
+    lastDryZ: 0,
+    inX: 0, // roam input: desired direction * strength, world space
+    inZ: 0,
     restX: 0,
     restZ: 0,
     timer: 0,
@@ -774,6 +828,7 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
 
   function placeBall(x, z) {
     Object.assign(ball, { x, z, air: 0, vx: 0, vz: 0, vy: 0, state: 'rest', restX: x, restZ: z, still: 0 });
+    if (waterDepth(x, z) < -0.6) Object.assign(ball, { lastDryX: x, lastDryZ: z });
   }
 
   function teeUp(i) {
@@ -943,9 +998,111 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
     }
   }
 
+  /* ---------- the golf cart ---------- */
+  const CART_R = 1.45;
+  const cartModel = makeCart();
+  scene.add(cartModel.group);
+  const cart = { x: 13.5, z: 41.5, heading: -2.2, speed: 0, occupied: false, ix: 0, iz: 0 };
+
+  function poseCart() {
+    const fx = Math.sin(cart.heading);
+    const fz = Math.cos(cart.heading);
+    const rx = Math.cos(cart.heading);
+    const rz = -Math.sin(cart.heading);
+    const hF = groundHeight(cart.x + fx * 1.1, cart.z + fz * 1.1);
+    const hB = groundHeight(cart.x - fx * 1.1, cart.z - fz * 1.1);
+    const hR = groundHeight(cart.x + rx * 0.75, cart.z + rz * 0.75);
+    const hL = groundHeight(cart.x - rx * 0.75, cart.z - rz * 0.75);
+    cartModel.group.position.set(cart.x, (hF + hB + hR + hL) / 4, cart.z);
+    cartModel.group.rotation.y = cart.heading;
+    cartModel.body.rotation.x = -Math.atan2(hF - hB, 2.2);
+    cartModel.body.rotation.z = Math.atan2(hR - hL, 1.5);
+  }
+  poseCart();
+
+  function stepCart(dt) {
+    if (cart.occupied) cart.speed += -cart.iz * 21 * dt;
+    cart.speed *= Math.pow(cart.occupied && cart.iz ? 0.55 : 0.2, dt);
+    cart.speed = Math.max(-7, Math.min(18, cart.speed));
+    if (Math.abs(cart.speed) < 0.02) cart.speed = 0;
+    const steer = Math.min(1, Math.abs(cart.speed) / 6);
+    cart.heading -= cart.ix * 1.9 * dt * steer * Math.sign(cart.speed || 1);
+
+    const fx = Math.sin(cart.heading);
+    const fz = Math.cos(cart.heading);
+    // hills slow you down going up and push going down
+    const slope = (groundHeight(cart.x + fx, cart.z + fz) - groundHeight(cart.x - fx, cart.z - fz)) / 2;
+    cart.speed -= slope * 9 * dt;
+
+    const nx = cart.x + fx * cart.speed * dt;
+    const nz = cart.z + fz * cart.speed * dt;
+    const probe = Math.sign(cart.speed || 1) * 1.7;
+    // the cart never drives into the sea: the shoreline is a wall for it
+    if (waterDepth(nx + fx * probe, nz + fz * probe) > -0.2) {
+      if (Math.abs(cart.speed) > 3) puff(nx + fx * probe, nz + fz * probe, 0xe6d3a8);
+      cart.speed *= -0.25;
+    } else {
+      cart.x = nx;
+      cart.z = nz;
+    }
+
+    for (const c of statics) {
+      const dx = cart.x - c.x;
+      const dz = cart.z - c.z;
+      const d = Math.hypot(dx, dz) || 0.001;
+      const min = CART_R + c.r;
+      if (d < min) {
+        cart.x = c.x + (dx / d) * min;
+        cart.z = c.z + (dz / d) * min;
+        if (Math.abs(cart.speed) > 4) puff(c.x, c.z, 0x8a9a6a);
+        cart.speed *= 0.45;
+      }
+    }
+
+    for (const b of bags) {
+      const dx = b.x - cart.x;
+      const dz = b.z - cart.z;
+      const d = Math.hypot(dx, dz) || 0.001;
+      const min = CART_R + b.r;
+      if (d < min) {
+        const nxB = dx / d;
+        const nzB = dz / d;
+        b.x = cart.x + nxB * min;
+        b.z = cart.z + nzB * min;
+        const impact = Math.abs(cart.speed) * Math.max(0.3, Math.abs(nxB * fx + nzB * fz));
+        hitBag(b, nxB, nzB, impact * 1.3 + 0.5);
+        cart.speed *= 0.9;
+      }
+    }
+
+    // a ball in the way gets shoved
+    if (ball.state !== 'parked' && Math.abs(cart.speed) > 0.5) {
+      const dx = ball.x - cart.x;
+      const dz = ball.z - cart.z;
+      const d = Math.hypot(dx, dz) || 0.001;
+      const min = CART_R + BALL_R;
+      if (d < min && (ball.state === 'roam' || ball.state === 'rest' || ball.state === 'moving')) {
+        ball.x = cart.x + (dx / d) * min;
+        ball.z = cart.z + (dz / d) * min;
+        const push = Math.abs(cart.speed) * 1.3 + 1;
+        ball.vx = (dx / d) * push;
+        ball.vz = (dz / d) * push;
+        if (Math.abs(cart.speed) > 8) {
+          ball.vy = 4;
+          ball.air = 0.02;
+        }
+        if (ball.state === 'rest') ball.state = 'moving';
+      }
+    }
+
+    cartModel.wheels.forEach((w) => (w.rotation.x += (cart.speed * dt) / 0.32));
+    poseCart();
+  }
+
   function stepBall(h) {
     const hole = LAYOUT[ball.hole];
     const [cx, cz] = hole.cup;
+    const roaming = ball.state === 'roam';
 
     if (ball.air > 0 || ball.vy > 0) {
       ball.vy -= G * h;
@@ -972,12 +1129,24 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
       ball.vx -= SLOPE * gx * h;
       ball.vz -= SLOPE * gz * h;
 
+      if (roaming) {
+        // push in the input direction, easing off near top speed
+        const along = ball.vx * ball.inX + ball.vz * ball.inZ;
+        const room = Math.max(0, 1 - along / 16);
+        ball.vx += ball.inX * 30 * room * h;
+        ball.vz += ball.inZ * 30 * room * h;
+        if (waterDepth(ball.x, ball.z) < -0.6) {
+          ball.lastDryX = ball.x;
+          ball.lastDryZ = ball.z;
+        }
+      }
+
       // the cup pulls in a slow putt that is close enough
       const dcx = cx - ball.x;
       const dcz = cz - ball.z;
       const dCup = Math.hypot(dcx, dcz);
       let sp = Math.hypot(ball.vx, ball.vz);
-      if (dCup < 1.3 && sp < 4.5) {
+      if (!roaming && dCup < 1.3 && sp < 4.5) {
         ball.vx += (dcx / dCup) * 5 * h;
         ball.vz += (dcz / dCup) * 5 * h;
       }
@@ -1005,9 +1174,28 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
 
     if (ball.air < 0.9) collideBall();
 
+    // the parked cart is solid
+    if (!cart.occupied && ball.air < 1.6) {
+      const dx = ball.x - cart.x;
+      const dz = ball.z - cart.z;
+      const d = Math.hypot(dx, dz) || 0.001;
+      const min = CART_R + BALL_R;
+      if (d < min) {
+        const nx = dx / d;
+        const nz = dz / d;
+        ball.x = cart.x + nx * min;
+        ball.z = cart.z + nz * min;
+        const vn = ball.vx * nx + ball.vz * nz;
+        if (vn < 0) {
+          ball.vx -= 1.5 * vn * nx;
+          ball.vz -= 1.5 * vn * nz;
+        }
+      }
+    }
+
     // the cup
     const dCup = Math.hypot(ball.x - cx, ball.z - cz);
-    if (dCup < CUP_R && ball.air < 0.2) {
+    if (!roaming && dCup < CUP_R && ball.air < 0.2) {
       const sp = Math.hypot(ball.vx, ball.vz);
       if (sp < 8.5) {
         ball.state = 'holed';
@@ -1030,10 +1218,11 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
 
     // the water
     if (ball.air <= 0.05 && waterDepth(ball.x, ball.z) > 0.12) {
+      ball.wasRoam = roaming;
       ball.state = 'water';
       ball.timer = 0;
       splash(ball.x, ball.z);
-      onEvent?.({ type: 'water' });
+      onEvent?.({ type: 'water', roaming });
       return;
     }
 
@@ -1046,7 +1235,7 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
       ball.vz *= -0.2;
     }
 
-    if (ball.still > 0.25) {
+    if (!roaming && ball.still > 0.25) {
       ball.vx = 0;
       ball.vz = 0;
       ball.state = 'rest';
@@ -1059,9 +1248,10 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
   function updateBall(dt) {
     const prevX = ball.x;
     const prevZ = ball.z;
-    if (ball.state === 'moving') {
+    if (ball.state === 'moving' || ball.state === 'roam') {
+      const st = ball.state;
       const steps = Math.ceil(dt / (1 / 120));
-      for (let i = 0; i < steps && ball.state === 'moving'; i++) stepBall(dt / steps);
+      for (let i = 0; i < steps && ball.state === st; i++) stepBall(dt / steps);
     } else if (ball.state === 'holed') {
       ball.timer += dt;
       const [cx, cz] = LAYOUT[ball.hole].cup;
@@ -1072,15 +1262,22 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
       ball.timer += dt;
       ball.air = Math.max(-1.6, ball.air - dt * 1.4);
       if (ball.timer > 1.3) {
-        // penalty drop where the shot was played from
-        placeBall(ball.restX, ball.restZ);
-        onEvent?.({ type: 'dropped' });
+        if (ball.wasRoam) {
+          // exploring: wash back up where you were last on dry land
+          placeBall(ball.lastDryX, ball.lastDryZ);
+          ball.state = 'roam';
+          onEvent?.({ type: 'dropped', roaming: true });
+        } else {
+          // golf: penalty drop where the shot was played from
+          placeBall(ball.restX, ball.restZ);
+          onEvent?.({ type: 'dropped' });
+        }
       }
     }
 
     const gy = ball.state === 'water' ? WATER_Y : groundHeight(ball.x, ball.z);
     ballMesh.position.set(ball.x, gy + BALL_R + ball.air, ball.z);
-    ballMesh.visible = !(ball.state === 'holed' && ball.timer > 0.4);
+    ballMesh.visible = ball.state !== 'parked' && !(ball.state === 'holed' && ball.timer > 0.4);
     shadowDisc.position.set(ball.x, groundHeight(ball.x, ball.z) + 0.05, ball.z);
     shadowDisc.visible = ball.air > 0.3 && ball.state === 'moving';
     shadowDisc.material.opacity = Math.max(0.06, 0.24 - ball.air * 0.02);
@@ -1100,6 +1297,7 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
     water.material.uniforms.uTime.value = clock;
 
     updateBall(dt);
+    stepCart(dt);
     stepBags(dt);
 
     for (const h of holes) {
@@ -1158,6 +1356,56 @@ export function createCourse(canvas, { theme, calm, onEvent }) {
     shoot,
     teeUp,
     drawAim,
+    cart,
+    /** Free roam from wherever the ball is, or from a given spot. */
+    roam(x = ball.x, z = ball.z) {
+      if (ball.state === 'water') return;
+      placeBall(x, z);
+      ball.state = 'roam';
+    },
+    setRoamInput(x, z) {
+      ball.inX = x;
+      ball.inZ = z;
+    },
+    hop() {
+      if (ball.state === 'roam' && ball.air <= 0 && ball.vy === 0) {
+        ball.vy = 7.5;
+        ball.air = 0.02;
+      }
+    },
+    setCartInput(ix, iz) {
+      cart.ix = ix;
+      cart.iz = iz;
+    },
+    cartDistance() {
+      return Math.hypot(cart.x - ball.x, cart.z - ball.z);
+    },
+    enterCart() {
+      if (cart.occupied || ball.state !== 'roam') return false;
+      cart.occupied = true;
+      ball.state = 'parked';
+      return true;
+    },
+    exitCart() {
+      if (!cart.occupied) return false;
+      const fx = Math.sin(cart.heading);
+      const fz = Math.cos(cart.heading);
+      const rx = Math.cos(cart.heading);
+      const rz = -Math.sin(cart.heading);
+      // step out to the left, the right, or behind, whichever is dry
+      const spots = [
+        [cart.x - rx * 2.3, cart.z - rz * 2.3],
+        [cart.x + rx * 2.3, cart.z + rz * 2.3],
+        [cart.x - fx * 2.8, cart.z - fz * 2.8],
+      ];
+      const [x, z] = spots.find(([sx, sz]) => waterDepth(sx, sz) < -0.4) ?? spots[2];
+      placeBall(x, z);
+      ball.state = 'roam';
+      cart.occupied = false;
+      cart.ix = 0;
+      cart.iz = 0;
+      return true;
+    },
     aimAtCup() {
       const [cx, cz] = LAYOUT[ball.hole].cup;
       return Math.atan2(cx - ball.x, cz - ball.z);

@@ -127,17 +127,152 @@
   margin: 0 3px;
 }
 
-.tools {
+/* right column: tools above the minimap */
+.side {
   position: absolute;
   right: var(--gutter);
   top: calc(var(--nav-h) + 14px);
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+.stage[data-coarse] .side {
+  top: max(16px, env(safe-area-inset-top));
+}
+
+.tools {
   display: flex;
   gap: 8px;
 }
 .stage[data-coarse] .tools {
-  top: max(16px, env(safe-area-inset-top));
   flex-direction: column;
   align-items: flex-end;
+}
+
+.map {
+  width: 176px;
+  height: auto;
+  padding: 8px;
+  border-radius: var(--r-m);
+  background: rgba(255, 253, 249, 0.9);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-card);
+}
+.stage[data-coarse] .map {
+  width: 128px;
+  padding: 6px;
+}
+.mapSea {
+  fill: #cfe5e2;
+}
+.mapLand {
+  fill: #a9cf87;
+}
+.mapHole line {
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.mapHole circle {
+  fill: var(--card);
+  stroke: var(--ink-3);
+  stroke-width: 1.2;
+}
+.mapHole text {
+  font: 800 8.5px var(--sans);
+  fill: var(--ink-3);
+  text-anchor: middle;
+}
+.mapHole[data-found] circle {
+  fill: var(--ember);
+  stroke: none;
+}
+.mapHole[data-found] text {
+  fill: #fff;
+}
+.mapHole[data-played] circle {
+  fill: var(--teal);
+}
+.mapHole[data-current] circle {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.mapCart rect {
+  fill: var(--card);
+  stroke: var(--teal);
+  stroke-width: 1.4;
+}
+.mapMe circle {
+  fill: var(--ink);
+  stroke: #fff;
+  stroke-width: 1.6;
+}
+
+.prompts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+.prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--ember);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 6px 0 -1px var(--ember-ink);
+  animation: rise 0.35s var(--ease) both;
+  transition: transform 0.2s var(--ease);
+}
+.prompt:hover {
+  transform: translateY(-2px);
+}
+.prompt[data-tone='cart'] {
+  background: var(--teal);
+  box-shadow: 0 6px 0 -1px #00504f;
+}
+.prompt kbd {
+  color: #fff;
+}
+
+.stick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 108px;
+  height: 108px;
+  margin: -54px 0 0 -54px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(7, 25, 31, 0.22);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.stick i {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(255, 253, 249, 0.95);
+  box-shadow: var(--shadow-card);
+}
+
+.textBtn {
+  display: block;
+  margin-top: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--teal);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .tool {
@@ -208,7 +343,8 @@
   left: 50%;
   top: calc(var(--nav-h) + 96px);
   transform: translateX(-50%);
-  max-width: calc(100% - 2 * var(--gutter));
+  width: max-content;
+  max-width: min(520px, calc(100% - 2 * var(--gutter)));
   padding: 10px 16px;
   border-radius: 10px;
   background: var(--ink);
@@ -219,7 +355,8 @@
   animation: rise 0.35s var(--ease) both;
 }
 .stage[data-coarse] .toast {
-  top: 110px;
+  top: auto;
+  bottom: 170px;
 }
 
 .result {
