@@ -15,8 +15,9 @@ export const LEFT_HOME = HOME_R + 4;
 export const HOLO_R = 9;
 export const CART_R = 4;
 export const ISLAND = { rx: 72, rz: 56 };
-export const SHORE_E = 1.045;
 export const MAX_E = 1.3;
+/** Height of the sea plane. Anything whose ground sits below it is in the water. */
+export const WATER_Y = -0.55;
 
 export const KIND_COLOR = {
   home: 0x4ade80,
@@ -57,6 +58,8 @@ export const groundHeight = (x, z) => {
   const drop = smoothstep(1.0, 1.22, e) * -6.5;
   return lip + drop;
 };
+/** How far below the sea surface the ground is at (x, z). Positive means wet. */
+export const waterDepth = (x, z) => WATER_Y - groundHeight(x, z);
 
 /* ------------------------------------------------------------------ */
 /* procedural textures                                                 */
@@ -338,7 +341,7 @@ function makeWater() {
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.55;
+  mesh.position.y = WATER_Y;
   return mesh;
 }
 
@@ -1324,7 +1327,7 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
         new THREE.MeshBasicMaterial({ color: 0xeafcff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }),
       );
       ring.rotation.x = -Math.PI / 2;
-      ring.position.set(x, -0.4, z);
+      ring.position.set(x, WATER_Y + 0.15, z);
       ring.scale.setScalar(0.4 + i * 0.28);
       scene.add(ring);
       return ring;
@@ -1627,10 +1630,11 @@ export function createScene(canvas, { flags, links, holos, gallery, calm, coarse
       b.vel.x *= damp;
       b.vel.y *= damp;
       b.spin *= damp;
-      const e = Math.hypot(b.group.position.x / ISLAND.rx, b.group.position.z / ISLAND.rz);
-      if (e > 1) {
-        b.group.position.x /= e;
-        b.group.position.z /= e;
+      // props stop at the waterline instead of sliding into the sea
+      if (waterDepth(b.group.position.x, b.group.position.z) > -0.1) {
+        b.group.position.x -= b.vel.x * dt;
+        b.group.position.z -= b.vel.y * dt;
+        b.group.position.y = groundHeight(b.group.position.x, b.group.position.z);
         b.vel.x *= -0.4;
         b.vel.y *= -0.4;
       }

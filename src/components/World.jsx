@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { COURSE_FACTS, COURSE_FLAGS, COURSE_LINKS, GALLERY, ROUTE_HOLOS } from '../data/cv';
-import { CART_R, DISCOVER, HOME_R, ISLAND, LEFT_HOME, MAX_E, NEAR, SHORE_E, createScene, groundHeight } from '../three/scene';
+import { CART_R, DISCOVER, HOME_R, ISLAND, LEFT_HOME, MAX_E, NEAR, createScene, groundHeight, waterDepth } from '../three/scene';
 import Gallery from './Gallery';
 import s from './world.module.css';
 
@@ -296,7 +296,6 @@ export default function World({ onOpen, paused = false }) {
         if (S.keys.has('s') || S.keys.has('arrowdown')) iz += 1;
       }
 
-      let shoreE = 0;
       if (S.mode === 'ball') {
         S.yaw += (S.yawTarget - S.yaw) * (1 - Math.pow(0.001, dt));
         fwd.set(Math.sin(S.yaw), 0, Math.cos(S.yaw));
@@ -319,7 +318,7 @@ export default function World({ onOpen, paused = false }) {
         const drag = S.airY > 0 ? 0.35 : 0.0016;
         S.vel.add(accel).multiplyScalar(Math.pow(drag, dt));
         player.position.addScaledVector(S.vel, dt);
-        shoreE = clampIsland(player.position, S.vel);
+        clampIsland(player.position, S.vel);
         if (S.respawnT <= 0) {
           player.position.y = groundHeight(player.position.x, player.position.z) + S.airY;
         }
@@ -336,7 +335,7 @@ export default function World({ onOpen, paused = false }) {
         S.vel.set(dirX * cartState.speed, 0, dirZ * cartState.speed);
         cart.group.position.x += S.vel.x * dt;
         cart.group.position.z += S.vel.z * dt;
-        shoreE = clampIsland(cart.group.position, S.vel);
+        clampIsland(cart.group.position, S.vel);
         if (S.respawnT <= 0) {
           cart.group.position.y = groundHeight(cart.group.position.x, cart.group.position.z);
         }
@@ -348,8 +347,10 @@ export default function World({ onOpen, paused = false }) {
 
       const pos = vehiclePos();
 
-      /* into the drink: splash, count down, respawn at the tee */
-      if (S.respawnT <= 0 && shoreE > SHORE_E && !S.paused) {
+      /* into the drink: only once the ground under the vehicle is actually below
+         the sea surface (the ball half under, the cart up to its axles) */
+      const sinkAt = S.mode === 'cart' ? 0.4 : 0.25;
+      if (S.respawnT <= 0 && S.airY <= 0 && waterDepth(pos.x, pos.z) > sinkAt && !S.paused) {
         beginRespawn(pos);
       }
       if (S.respawnT > 0) {
