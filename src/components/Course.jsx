@@ -307,7 +307,8 @@ export default function Course({ playing, onExit }) {
     stage.addEventListener('pointercancel', onPointerUp);
 
     /* ---------- keyboard ---------- */
-    const MOVE = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+    // The game owns WASD and Space. Arrow keys and the mouse wheel stay with the page.
+    const MOVE = new Set(['w', 'a', 's', 'd']);
     const onKeyDown = (e) => {
       if (!S.playing || !S.visible) return;
       if (e.target instanceof HTMLElement && /input|textarea|select/i.test(e.target.tagName)) return;
@@ -317,9 +318,15 @@ export default function Course({ playing, onExit }) {
         e.preventDefault();
         return;
       }
-      const onButton = e.target.closest?.('button, a');
+      if (k === ' ') {
+        // a focused button on a result card may still take Space; nothing else scrolls the page
+        if (e.target.closest?.('[role=dialog] button')) return;
+        e.preventDefault();
+        if (e.target instanceof HTMLElement && e.target.closest('button, a')) e.target.blur();
+        if (e.repeat) return;
+      }
       if (S.mode === 'golf') {
-        if ((k === ' ' || k === 'enter') && canAim() && !onButton) {
+        if ((k === ' ' || (k === 'enter' && !e.target.closest?.('button, a'))) && canAim()) {
           e.preventDefault();
           if (!S.charging) {
             S.charging = true;
@@ -328,8 +335,7 @@ export default function Course({ playing, onExit }) {
           }
         } else if (k === 'v') setOverview((v) => !v);
         else if (k === 'escape') backToRoam();
-      } else if (k === ' ' && !onButton && S.mode === 'roam') {
-        e.preventDefault();
+      } else if (k === ' ' && S.mode === 'roam') {
         if (!S.charging) {
           S.charging = true;
           S.power = 0;
@@ -342,6 +348,7 @@ export default function Course({ playing, onExit }) {
     const onKeyUp = (e) => {
       const k = e.key.toLowerCase();
       S.keys.delete(k);
+      if (k === ' ' && S.playing && !e.target.closest?.('[role=dialog] button')) e.preventDefault();
       if ((k === ' ' || k === 'enter') && S.charging) {
         S.charging = false;
         if (S.mode === 'golf') shoot();
@@ -381,10 +388,10 @@ export default function Course({ playing, onExit }) {
       let ix = 0;
       let iz = 0;
       if (S.playing) {
-        if (S.keys.has('a') || S.keys.has('arrowleft')) ix -= 1;
-        if (S.keys.has('d') || S.keys.has('arrowright')) ix += 1;
-        if (S.keys.has('w') || S.keys.has('arrowup')) iz -= 1;
-        if (S.keys.has('s') || S.keys.has('arrowdown')) iz += 1;
+        if (S.keys.has('a')) ix -= 1;
+        if (S.keys.has('d')) ix += 1;
+        if (S.keys.has('w')) iz -= 1;
+        if (S.keys.has('s')) iz += 1;
         if (S.stick) {
           ix += S.stick.dx;
           iz += S.stick.dy;
@@ -707,8 +714,8 @@ export default function Course({ playing, onExit }) {
                   <>Drag sideways to aim, pull down for power, let go to swing.</>
                 ) : (
                   <>
-                    Drag sideways to aim and down for power, or use <kbd>←</kbd>
-                    <kbd>→</kbd> and hold <kbd>Space</kbd>.
+                    Drag sideways to aim and down for power, or aim with <kbd>A</kbd>
+                    <kbd>D</kbd> and hold <kbd>Space</kbd>.
                   </>
                 )}
               </p>
