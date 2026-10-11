@@ -593,6 +593,11 @@ function makeBoard(board, n, accent) {
   );
   face.position.set(0, 1.9 + BH / 2, 0);
   g.add(face);
+  // the same picture on the back, so it reads from either side
+  const back = new THREE.Mesh(face.geometry, face.material);
+  back.position.set(0, 1.9 + BH / 2, -0.24);
+  back.rotation.y = Math.PI;
+  g.add(back);
   return g;
 }
 
